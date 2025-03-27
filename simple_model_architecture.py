@@ -160,13 +160,14 @@ class SimplifiedCharCNNBiLSTM(nn.Module):
             batch_first=True
         )
         
-        # ===== NEW CODE: Feature Processing Layers =====
+        # ===== Feature Processing Layers =====
         # Process toxicity features
-        self.feature_fc = nn.Linear(3, 16)  # 3 features to 16 dimensions
+        self.feature_fc = nn.Linear(3, 32)  # 3 features to 32 dimensions (increased from 16)
+        self.feature_bn = nn.BatchNorm1d(32)  # Added batch normalization
         self.feature_dropout = nn.Dropout(dropout_rate)
         
         # Combine LSTM and feature outputs
-        combined_dim = lstm_hidden_dim * 2 + 16  # BiLSTM output + feature dimensions
+        combined_dim = lstm_hidden_dim * 2 + 32  # BiLSTM output + feature dimensions
         
         # Increased dropout for better regularization
         self.dropout = nn.Dropout(dropout_rate + 0.1)
@@ -209,14 +210,15 @@ class SimplifiedCharCNNBiLSTM(nn.Module):
                     elif 'bias' in name:
                         nn.init.constant_(param, 0)
         
-        # Directly initialize fc_toxicity and fc_category weights (before weight_norm is applied)
+        # UPDATED: Add negative bias to toxicity classifier to reduce false positives
         nn.init.normal_(self.fc_toxicity.weight, mean=0, std=0.01)
-        nn.init.constant_(self.fc_toxicity.bias, 0)  # Neutral bias
+        nn.init.constant_(self.fc_toxicity.bias, -0.5)  # Strong negative bias to reduce toxic false positives
         
+        # UPDATED: Adjust bias for category detection
         nn.init.normal_(self.fc_category.weight, mean=0, std=0.01)
-        nn.init.constant_(self.fc_category.bias, -0.2)  # Slight negative bias to reduce false positives
+        nn.init.constant_(self.fc_category.bias, -0.7)  # More negative bias to reduce false positives
         
-        # Initialize new feature processing layers
+        # Initialize feature processing layers with Xavier
         nn.init.xavier_normal_(self.feature_fc.weight)
         nn.init.constant_(self.feature_fc.bias, 0)
     
@@ -249,9 +251,9 @@ class SimplifiedCharCNNBiLSTM(nn.Module):
         
         # Process additional toxicity features if provided
         if toxicity_features is not None:
-            # toxicity_features should be a tensor of shape [batch_size, 3]
-            # with columns: all_caps_ratio, toxic_keyword_count, toxic_keyword_ratio
+            # UPDATED: Improved feature processing
             feature_vec = self.feature_fc(toxicity_features)
+            feature_vec = self.feature_bn(feature_vec)  # Added batch normalization
             feature_vec = F.relu(feature_vec)
             feature_vec = self.feature_dropout(feature_vec)
             
@@ -261,7 +263,7 @@ class SimplifiedCharCNNBiLSTM(nn.Module):
             # If no features provided, use only LSTM output with zero padding for feature dimension
             device = global_max_pool.device
             batch_size = global_max_pool.size(0)
-            feature_padding = torch.zeros(batch_size, 16, device=device)
+            feature_padding = torch.zeros(batch_size, 32, device=device)  # Changed from 16 to 32
             combined = torch.cat([global_max_pool, feature_padding], dim=1)
         
         # Final output layers

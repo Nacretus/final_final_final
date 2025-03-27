@@ -103,8 +103,9 @@ class ImprovedFeedbackManager:
         self.char_vocab = char_vocab
         self.feedback_examples = []
         self.original_model_state = copy.deepcopy(model.state_dict())
-        self.original_thresholds = CONFIG.get('category_thresholds', [0.5, 0.5, 0.5, 0.5]).copy()
-        self.min_feedback_for_retraining = 100  # Require more examples before retraining
+        self.original_thresholds = CONFIG.get('category_thresholds', [0.7, 0.7, 0.7, 0.7]).copy()
+        # UPDATED: Lowered the number of required feedback examples
+        self.min_feedback_for_retraining = CONFIG.get('min_feedback_for_retraining', 20)
         
     def add_feedback(self, text, model_prediction, correct_toxicity, correct_categories=None):
         """Add a single feedback example."""
@@ -122,7 +123,7 @@ class ImprovedFeedbackManager:
         
         return len(self.feedback_examples)
     
-    def perform_retraining(self, epochs=5, learning_rate=0.0001):
+    def perform_retraining(self, epochs=10, learning_rate=0.0001):
         """Perform retraining on accumulated feedback examples."""
         if len(self.feedback_examples) < self.min_feedback_for_retraining:
             print(f"Not enough feedback examples ({len(self.feedback_examples)}/{self.min_feedback_for_retraining})")
@@ -162,23 +163,27 @@ class ImprovedFeedbackManager:
         train_loader = DataLoader(train_dataset, batch_size=16, shuffle=True)
         val_loader = DataLoader(val_dataset, batch_size=16)
         
-        # Use balanced class weights
+        # UPDATED: Use balanced class weights with emphasis on non-toxic
         device = next(self.model.parameters()).device
-        class_weights = torch.tensor([1.0, 2.0, 2.0], dtype=torch.float).to(device)
+        # Increase weight for non-toxic samples (class 0)
+        class_weights = torch.tensor([2.5, 1.0, 1.0], dtype=torch.float).to(device)
         toxicity_criterion = nn.CrossEntropyLoss(weight=class_weights)
-        category_criterion = nn.BCEWithLogitsLoss()
+        
+        # UPDATED: Increase weight for insult detection
+        category_weights = torch.tensor([2.0, 1.0, 1.0, 1.0], dtype=torch.float).to(device)
+        category_criterion = nn.BCEWithLogitsLoss(pos_weight=category_weights)
         
         # Use standard Adam optimizer with weight decay
         optimizer = optim.Adam(
             self.model.parameters(),
             lr=learning_rate,
-            weight_decay=1e-5
+            weight_decay=7e-5  # Increased weight decay for regularization
         )
         
         # Training loop
         best_val_loss = float('inf')
         best_model_state = None
-        patience = 3
+        patience = 5  # Increased patience for better convergence
         patience_counter = 0
         
         for epoch in range(epochs):
@@ -204,8 +209,13 @@ class ImprovedFeedbackManager:
                 toxicity_loss = toxicity_criterion(toxicity_output, toxicity_labels)
                 category_loss = category_criterion(category_output, category_labels)
                 
-                loss = toxicity_loss + category_loss
+                # UPDATED: Give more weight to toxicity classification
+                loss = 1.5 * toxicity_loss + category_loss
                 loss.backward()
+                
+                # ADDED: Gradient clipping to stabilize training
+                torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=1.0)
+                
                 optimizer.step()
                 
                 train_loss += loss.item()
@@ -232,7 +242,7 @@ class ImprovedFeedbackManager:
                     toxicity_loss = toxicity_criterion(toxicity_output, toxicity_labels)
                     category_loss = category_criterion(category_output, category_labels)
                     
-                    loss = toxicity_loss + category_loss
+                    loss = 1.5 * toxicity_loss + category_loss
                     val_loss += loss.item()
             
             avg_train_loss = train_loss / len(train_loader)
@@ -307,18 +317,19 @@ def train_model(model, train_loader, val_loader, num_epochs=30, learning_rate=0.
     device = next(model.parameters()).device
     
     # Setup loss functions with balanced weights
-    class_weights = torch.tensor(CONFIG.get('focal_alpha', [1.0, 2.0, 2.0]), dtype=torch.float).to(device)
+    # UPDATED: Increased weight for non-toxic class (level 0)
+    class_weights = torch.tensor(CONFIG.get('focal_alpha', [2.5, 1.0, 1.0]), dtype=torch.float).to(device)
     toxicity_criterion = nn.CrossEntropyLoss(weight=class_weights)
     
-    # For multi-label category classification
-    category_weights = torch.tensor(CONFIG.get('category_weights', [1.0, 1.0, 1.0, 1.0]), dtype=torch.float).to(device)
+    # UPDATED: Adjusted category weights to fix insult detection
+    category_weights = torch.tensor(CONFIG.get('category_weights', [2.0, 1.0, 1.0, 1.0]), dtype=torch.float).to(device)
     category_criterion = nn.BCEWithLogitsLoss(pos_weight=category_weights)
     
     # Optimizer with weight decay (L2 regularization)
     optimizer = optim.Adam(
         model.parameters(),
         lr=learning_rate,
-        weight_decay=CONFIG.get('weight_decay', 5e-4)
+        weight_decay=CONFIG.get('weight_decay', 7e-4)
     )
     
     # Learning rate scheduler - reduce on plateau
@@ -370,8 +381,8 @@ def train_model(model, train_loader, val_loader, num_epochs=30, learning_rate=0.
             toxicity_loss = toxicity_criterion(toxicity_output, toxicity_labels)
             category_loss = category_criterion(category_output, category_labels)
             
-            # Combined loss
-            loss = toxicity_loss + category_loss * CONFIG.get('category_loss_scale', 1.0)
+            # UPDATED: Give more weight to toxicity classification
+            loss = 1.5 * toxicity_loss + category_loss * CONFIG.get('category_loss_scale', 1.2)
             
             # Backward pass and optimize
             loss.backward()
@@ -420,7 +431,7 @@ def train_model(model, train_loader, val_loader, num_epochs=30, learning_rate=0.
                 category_loss = category_criterion(category_output, category_labels)
                 
                 # Combined loss
-                loss = toxicity_loss + category_loss * CONFIG.get('category_loss_scale', 1.0)
+                loss = 1.5 * toxicity_loss + category_loss * CONFIG.get('category_loss_scale', 1.2)
                 
                 # Track loss
                 val_loss += loss.item()
@@ -431,7 +442,7 @@ def train_model(model, train_loader, val_loader, num_epochs=30, learning_rate=0.
                 val_toxicity_labels.extend(toxicity_labels.cpu().numpy())
                 
                 # Apply thresholds for categories
-                category_thresholds = CONFIG.get('category_thresholds', [0.5, 0.5, 0.5, 0.5])
+                category_thresholds = CONFIG.get('category_thresholds', [0.7, 0.7, 0.7, 0.7])
                 category_probs = torch.sigmoid(category_output)
                 batch_category_preds = torch.zeros_like(category_labels)
                 
@@ -455,7 +466,8 @@ def train_model(model, train_loader, val_loader, num_epochs=30, learning_rate=0.
             if np.sum(np.array(val_category_labels)[:, i]) > 0:
                 cat_f1 = f1_score(
                     np.array(val_category_labels)[:, i],
-                    np.array(val_category_preds)[:, i]
+                    np.array(val_category_preds)[:, i],
+                    zero_division=0
                 )
                 val_category_f1.append(cat_f1)
         
@@ -666,7 +678,7 @@ def evaluate_on_dataset(model, char_vocab, df_or_dataset, batch_size=32, verbose
             toxicity_preds = torch.argmax(toxicity_output, dim=1)
             
             # Apply thresholds for categories
-            category_thresholds = CONFIG.get('category_thresholds', [0.5, 0.5, 0.5, 0.5])
+            category_thresholds = CONFIG.get('category_thresholds', [0.7, 0.7, 0.7, 0.7])
             category_probs = torch.sigmoid(category_output)
             batch_category_preds = torch.zeros_like(category_labels)
             
@@ -680,7 +692,6 @@ def evaluate_on_dataset(model, char_vocab, df_or_dataset, batch_size=32, verbose
             all_category_preds.extend(batch_category_preds.cpu().numpy())
             all_category_labels.extend(category_labels.cpu().numpy())
     
-    # Rest of the evaluation function remains the same...
     # Convert to arrays
     all_toxicity_preds = np.array(all_toxicity_preds)
     all_toxicity_labels = np.array(all_toxicity_labels)
@@ -692,10 +703,17 @@ def evaluate_on_dataset(model, char_vocab, df_or_dataset, batch_size=32, verbose
     
     # Calculate toxicity class metrics
     from sklearn.metrics import classification_report
+    # Get unique classes present in both labels and predictions
+    unique_labels = np.unique(np.concatenate((all_toxicity_labels, all_toxicity_preds)))
+    target_names = ['Not Toxic', 'Toxic', 'Very Toxic']
+    
+    # Create toxicity report with only the classes that are present
     toxicity_report = classification_report(
         all_toxicity_labels, all_toxicity_preds, 
-        target_names=['Not Toxic', 'Toxic', 'Very Toxic'],
-        output_dict=True
+        labels=sorted(unique_labels),  # Only include classes that are present
+        target_names=[target_names[i] for i in sorted(unique_labels)],
+        output_dict=True,
+        zero_division=0
     )
     
     # Build confusion matrix
@@ -707,12 +725,24 @@ def evaluate_on_dataset(model, char_vocab, df_or_dataset, batch_size=32, verbose
     category_metrics = {}
     for i, category in enumerate(category_columns):
         if i < all_category_preds.shape[1]:
-            category_report = classification_report(
-                all_category_labels[:, i], all_category_preds[:, i],
-                target_names=[f'Non-{category}', category],
-                output_dict=True
-            )
-            category_metrics[category] = category_report
+            # Get unique classes present for this category
+            unique_cat_labels = np.unique(np.concatenate((all_category_labels[:, i], all_category_preds[:, i])))
+            cat_target_names = [f'Non-{category}', category]
+            
+            # Create category report with only the classes that are present
+            try:
+                category_report = classification_report(
+                    all_category_labels[:, i], all_category_preds[:, i],
+                    labels=sorted(unique_cat_labels),  # Only include classes that are present
+                    target_names=[cat_target_names[j] for j in sorted(unique_cat_labels)],
+                    output_dict=True,
+                    zero_division=0
+                )
+                category_metrics[category] = category_report
+            except ValueError as e:
+                print(f"Warning: Could not generate report for {category}: {e}")
+                # Create a simple dummy report so we don't break
+                category_metrics[category] = {category: {'precision': 0, 'recall': 0, 'f1-score': 0}}
     
     # Calculate macro-average F1 score for categories
     category_f1_scores = []
@@ -720,7 +750,7 @@ def evaluate_on_dataset(model, char_vocab, df_or_dataset, batch_size=32, verbose
         if i < all_category_preds.shape[1]:
             # Check if there are any positive examples
             if np.sum(all_category_labels[:, i]) > 0:
-                f1 = f1_score(all_category_labels[:, i], all_category_preds[:, i])
+                f1 = f1_score(all_category_labels[:, i], all_category_preds[:, i], zero_division=0)
                 category_f1_scores.append(f1)
     
     category_macro_f1 = np.mean(category_f1_scores) if category_f1_scores else 0.0
@@ -813,7 +843,7 @@ def batch_predict_with_uncertainty(mc_model, texts, char_vocab, batch_size=32, n
             toxicity_pred = torch.argmax(toxicity_probs).item()
             
             # Apply thresholds for categories
-            category_thresholds = CONFIG.get('category_thresholds', [0.5, 0.5, 0.5, 0.5])
+            category_thresholds = CONFIG.get('category_thresholds', [0.7, 0.7, 0.7, 0.7])
             category_preds = []
             for k, threshold in enumerate(category_thresholds):
                 if k < len(category_probs):
@@ -1007,4 +1037,3 @@ def interactive_prediction(model, char_vocab, feedback_manager=None):
         print(f"\nFeedback data saved to {save_path}")
     
     return feedback_manager
-

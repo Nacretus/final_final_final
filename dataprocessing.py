@@ -98,7 +98,7 @@ class HybridCharacterVocabulary:
         # Print some statistics about character coverage
         total_chars = sum(self.char_count.values())
         covered_chars = sum(count for char, count in self.char_count.items() if char in self.char_to_idx)
-        coverage = covered_chars / total_chars * 100
+        coverage = covered_chars / total_chars * 100 if total_chars > 0 else 0
         print(f"Character coverage: {coverage:.2f}% of all character occurrences")
 
     def encode_text(self, text, max_len=300):
@@ -174,6 +174,12 @@ def detect_language(text):
     "pasensya", "pasensiya", "mahal", "murang", 
     "malaki", "maliit", "masaya", "malungkot", 
     "maganda", "gwapo",
+    
+    # ADDED: More common Tagalog words to improve detection
+    "yung", "po", "opo", "yun", "dito", "diyan", "doon",
+    "kanina", "bukas", "kahapon", "ngayon", "mamaya",
+    "nasaan", "nasaaan", "gusto", "ayoko", "talaga",
+    "sobra", "grabe", "mabuti", "masama"
     ]
     
     # Clean and tokenize the text
@@ -188,8 +194,8 @@ def detect_language(text):
     tagalog_count = sum(1 for word in words if word in tagalog_markers)
     tagalog_ratio = tagalog_count / len(words)
     
-    # Determine language based on ratio
-    if tagalog_ratio > 0.15:  # If more than 15% words are Tagalog markers
+    # UPDATED: Lowered threshold for Tagalog detection to be more sensitive
+    if tagalog_ratio > 0.12:  # If more than 12% words are Tagalog markers
         return 'tl'
     else:
         return 'en'
@@ -208,238 +214,38 @@ def extract_toxicity_features(text):
     features['all_caps_ratio'] = len(all_caps_words) / max(1, len(words))
     
     # 2. Toxic keyword checking
-    # Define a basic toxic keyword list (expand this with your domain knowledge)
-    toxic_keywords = [
-    'kink', 'kinkster', 'kinky', 'kinkyJesus', 'kiss ass', 'kiss my ass', 'kissass', 'kitty puncher', 'kiunt', 'kkk',
-    'kkk', 'klan', 'klan', 'klansman', 'klansmen', 'klanswoman', 'klanswomen', 'klitoris', 'klootzak', 'kneegrows',
-    'knickers', 'knob', 'knob eater', 'knob end', 'knob gobbler', 'knob jockey', 'knob-face', 'knob-gobbler', 'knob-head', 'knob3d',
-    'knob3nd', 'knobbing', 'knobd', 'knobe', 'knobead', 'knobead', 'knobeads', 'knobed', 'knobed', 'knobeds',
-    'knobend', 'knobend', 'knobend', 'knobender', 'knobends', 'knobendy', 'knobendz', 'knober', 'knobes', 'knobgobbler',
-    'knobhead', 'knobhead', 'knobheads', 'knobjockies', 'knobjocky', 'knobjocky', 'knobjokey', 'knobjokey', 'knobjokeys',
-    'knobz', 'knockers', 'knulle', 'kock', 'kondum', 'kondums', 'kooch', 'kooches', 'koon', 'kootch',
-    'krap', 'krappy', 'kraut', 'krauts', 'ku kluxer', 'kuffar', 'kuk', 'kuksuger', 'kum', 'kumbubble',
-    'kumbullbe', 'kumer', 'kummer', 'kumming', 'kums', 'kunilingus', 'kunnilingus', 'kunt', 'kunts', 'kuntz',
-    'kupal', 'kurac', 'kurwa', 'kushi', 'kushis', 'kusi', 'kwa', 'kwai lo', 'kwai los', 'kwif',
-    'kyke', 'kyke', 'kykes', 'kyopo', 'kyopos', 'kyrpa', 'l3i + ch', 'l3i+ch', 'l3i+ch', 'l3i\\+ch',
-    'l3itch', 'l3itch', 'l3itches', 'l@dyb0i', 'l@dyb0y', 'l@dyboy', 'labia', 'labia', 'ladboys', 'ladboyz',
-    'ladiboy', 'lady-boy', 'ladyb0i', 'ladyb0y', 'ladyboy', 'ladyboys', 'ladyboyz', 'lapdance', 'leather restraint', 'leather straight',
-    'leatherrestraint', 'lebos', 'lech', 'leche', 'leching', 'lechugas', 'lemon party', 'lemonparty', 'leper', 'lesbain',
-    'lesbayn', 'lesbin', 'lesbo', 'lesbo', 'lesbos', 'lez', 'lezbe', 'lezbefriends', 'lezbian', 'lezbians',
-    'lezbo', 'lezbos', 'lezz', 'lezzian', 'lezzie', 'lezzies', 'lezzo', 'lezzy', 'libido', 'licker',
-    'licking', 'lickme', 'lilniglet', 'limey', 'limpdick', 'limy', 'lingerie', 'lintik', 'lipshits', 'lipshitz',
-    'livesex', 'lmao', 'lmfao', 'loadedgun', 'lolita', 'loose woman', 'lovebone', 'lovegoo', 'lovegun', 'lovejuice',
-    'lovemuscle', 'lovepistol', 'loverocket', 'lowlife', 'lsd', 'lubejob', 'lubra', 'lucifer', 'luckycammeltoe', 'lugan',
-    'lugans', 'lusting', 'lusty', 'lynch', 'm-fucking', 'm0f0', 'm0f0', 'm0f0s', 'm0fo', 'm0fo',
-    'm0foes', 'm0fos', 'm0ng0l0id', 'm0ngoloid', 'm0thafucked', 'm0thafucker', 'm0thafucking', 'm0therfuckeds', 'm0therfucker', 'm0therfucking',
-    'm0therfvcker', 'm45terbate', 'm@asterbated', 'm@derfaker', 'm@derfuck', 'm@derfuckers', 'ma5terb8', 'ma5terbate', 'mabuno', 'mabunos',
-    'macaca', 'macacas', 'mafugly', 'magicwand', 'mahbuno', 'mahbunos', 'make me come', 'makemecome', 'makemecum', 'male squirting',
-    'mamhoon', 'mams', 'man chowder', 'man meat', 'man seed', 'manhater', 'manpaste', 'maricon', 'maricón', 'marijuana',
-    'markasses', 'masochist', 'masokist', 'massa', 'massterbait', 'masstrbait', 'masstrbate', 'mastabate', 'mastabater', 'master-bate',
-    'masterb8', 'masterbaiter', 'masterbat', 'masterbat3', 'masterbate', 'masterbates', 'masterbating', 'masterbation', 'masterbations', 'masterblaster',
-    'mastrabator', 'masturbat', 'masturbate', 'masturbating', 'masturbation', 'mattressprincess', 'mau mau', 'mau maus', 'maumau', 'maumaus',
-    'mcfagget', 'meat curtains', 'meat-sword', 'meatbeatter', 'meatrack', 'mecha fag', 'mega fag', 'menage', 'merd', "mf'er",
-    "mf'ers", "mf'ing", 'mfckers', 'mfing', 'mfk', 'mfs', 'mfukk', 'mfukker', 'mgger', 'mggor',
-    'mibun', 'mick', 'mickeyfinn', 'mideast', 'mierda', 'milf', 'milf', 'mindfuck', 'mindfuck', 'minge',
-    'minger', 'mo-fo', 'mockey', 'mockie', 'mocky', 'mof0', 'mof0es', 'mof0s', 'mofcker', 'mofo',
-    'mofo', 'mofo ass', 'mofoes', 'mofos', 'mofoshit', 'mofuccers', 'mofucckers', 'mofuck', 'mofucker', 'mofuckkas',
-    'mofuk', 'mofukkas', 'moky', 'molest', 'molestation', 'molester', 'molester', 'molestor', 'moneyshot', 'mong',
-    'mong', 'mongoloid', 'mongrel', 'monkleigh', 'moolie', 'moon cricket', 'moon crickets', 'mooncricket', 'mooncrickets', 'moron',
-    'moskal', 'moskals', 'moslem', 'mosshead', 'motha fucka', 'motha fucker', 'motha fucker', 'motha fuckers', 'motha fuker', 'motha fukkah',
-    'motha fukker', 'mothaf@cked', 'mothafcked', 'mothafcking', 'mothafucced', 'mothafuccer', 'mothafuccing', 'mothafuck', 'mothafuck', 'mothafucka',
-    'mothafucka', 'mothafuckas', 'mothafuckas', 'mothafuckasses', 'mothafuckaz', 'mothafuckaz', 'mothafuckazzes', 'mothafucked', 'mothafucked', 'mothafuckeds',
-    'mothafucker', 'mothafucker', 'mothafuckers', 'mothafuckers', 'mothafuckin', 'mothafuckin', 'mothafucking', 'mothafucking', 'mothafuckings', 'mothafuckings',
-    'mothafuckins', 'mothafucks', 'mothafucks', 'mothafuckz', 'mothafvcked', 'mother effer', 'mother fuck', 'mother fuck you', 'mother fucka', 'mother fucker',
-    'mother fucker', 'mother fuckers', 'mother fucking', 'mother fukah', 'mother fuker', 'mother fukkah', 'mother fukker', 'mother-fucker', 'mothercker', 'motherf@kka',
-    'motherfacking', 'motherfcked', 'motherfckin', 'motherfcking', 'motherfcks', 'motherfckshit', 'motherfecka', 'motherfecker', 'motherfk', 'motherfucca',
-    'motherfuccas', 'motherfuccers', 'motherfuck', 'motherfuck', 'motherfucka', 'motherfucked', 'motherfucked', 'motherfuckeds', 'motherfucker', 'motherfucker',
-    'motherfuckers', 'motherfuckers', 'motherfuckin', 'motherfuckin', 'motherfucking', 'motherfucking', 'motherfuckings', 'motherfuckings', 'motherfuckingshit', 'motherfuckins',
-    'motherfuckka', 'motherfuckka', 'motherfuckkas', 'motherfuckkers', 'motherfucks', 'motherfucks', 'motherfukka', 'motherfukker', 'motherfukkings', 'motherfvck',
-    'motherfvcked', 'motherfvckeds', 'motherfvcker', 'motherfvcker', 'motherfvckers', 'motherfvcking', 'motherfxck', 'motherfxcking', 'motherlovebone', 'mothfck',
-    'mothrfucker', 'mothter fuck', 'mouliewop', 'mound of venus', 'moundofvenus', 'mr hands', 'mrhands', 'mtherfucker', 'mtherfuker', 'mthrfcker',
-    'mthrfuck', 'mthrfucker', 'mthrfucking', 'mtrfck', 'mtrfuck', 'mtrfucker', 'muddafukkas', 'mudderfuk', 'mudderfukker', 'mufdive',
-    'mufdivin', 'muff', 'muff', 'muff', 'muff diver', 'muffdive', 'muffdiver', 'muffdiving', 'muffdiving', 'muffdivings',
-    'muffindiver', 'muffindivin', 'muffindiving', 'mufflikcer', 'muffpuff', 'muhfucking', 'muie', 'mulatto', 'mulkku', 'muncher',
-    'munging', 'munt', 'munter', 'muschi', 'mushroom tip', 'mutha fucka', 'mutha fucker', 'mutha fucker', 'mutha fukah', 'mutha fuker',
-    'mutha fukkah', 'mutha fukker', 'muthafecker', 'muthafecker', 'muthafeckers', 'muthafucka', 'muthafuckaz', 'muthafucker', 'muthafuckers', 'muthafuckings',
-    'muthafuckker', 'muthafuckker', 'muthafuckkers', 'muthafukka', 'muther', 'mutherfucker', 'mutherfucker', 'mutherfuckers', 'mutherfucking', 'muthrfucking',
-    'mzungu', 'mzungus', 'n0bhead', 'n0bj0cky', 'n1ckker', 'n1g3r', 'n1g3rz', 'n1gg3r', 'n1gg3rs', "n1gg@",
-    "n1gg@hs", 'n1gga', 'n1gga', 'n1ggah', 'n1ggahs', 'n1ggas', 'n1ggazes', 'n1gger', 'n1gger', 'n1ggers',
-    'n1gguh', 'n1gr', 'n3gro', 'nads', 'nakakaburat', 'naked', 'nambla', 'nastt', 'nastybitch', 'nastyho',
-    'nastyslut', 'nastywhore', 'nawashi', 'nazi', 'nazis', 'nazism', 'necro', 'needthedick', 'negga', 'neggar',
-    'negr0', 'negres', 'negress', 'negro', 'negro', 'negroes', 'negroes', 'negroid', 'negroid', 'negros',
-    'neonazi', 'nepesaurio', 'niccer', 'nicka', 'nickas', 'nicker', 'nickk3r', 'nickker', 'nig', 'nig',
-    'nig nog', 'nig-nog', 'niga', 'niga', 'nigah', 'nigar', 'nigars', 'nigas', 'nigasses', 'nigers',
-    'nigers', 'nigette', 'nigettes', 'nigg', 'nigg3r', 'nigg3r', 'nigg3rs', 'nigg4h', 'nigg4h', 'nigg4hs',
-    'nigg@', 'nigg@hs', 'nigg@s', 'nigg@z', 'nigg@zzes', 'nigga', 'nigga', 'nigga', 'nigga lover', 'niggah',
-    'niggah', 'niggahs', 'niggahs', 'niggahz', 'niggar', 'niggaracci', 'niggard', 'niggarded', 'niggarding', 'niggardliness',
-    'niggardlinesss', 'niggardly', 'niggards', 'niggars', 'niggas', 'niggas', 'niggass', 'niggaz', 'niggaz', 'niggazzes',
-    'nigger', 'nigger', 'nigger', 'nigger lover', 'niggerhead', 'niggerhole', 'niggers', 'niggers', 'niggerz', 'niggir',
-    'niggle', 'niggled', 'niggles', 'nigglings', 'niggor', 'niggress', 'niggress', 'niggresses', 'nigguh', 'nigguh',
-    'nigguhs', 'nigguhs', 'nigguhz', 'niggur', 'niggurs', 'niglet', 'niglet', 'nignigs', 'nignog', 'nignog',
-    'nigor', 'nigors', 'nigr', 'nigra', 'nigra', 'nigras', 'nigre', 'nigre', 'nigres', 'nigress',
-    'nigs', 'nigs', 'niguh', 'nigur', 'niiger', 'niigr', 'nikk3r', 'nikkas', 'nikker', 'nimal',
-    'nimphomania', 'nimrod', 'ninny', 'nip', 'nipple', 'nipplering', 'nipples', 'nips', 'nittit', 'nlgger',
-    'nlggor', 'nob', 'nob jockey', 'nob jokey', 'nob jokeys', 'nobbyhead', 'nobhead', 'nobhead', 'nobheads', 'nobj0key',
-    'nobjockies', 'nobjocky', 'nobjocky', 'nobjokey', 'nobjokey', 'nobjokeys', 'nobs', 'nofuckingway', 'nog', 'nonce',
-    'nookey', 'nookie', 'nooky', 'noonan', 'nooner', 'nsfw', 'nsfw images', 'nuckas', 'nudger', 'nudie',
-    'nudies', 'nuggets', 'numbnuts', 'nut butter', 'nut sack', 'nutbutter', 'nutfucker', 'nutsack', 'nutsack', 'nutsacks',
-    'nutten', 'nympho', 'nympho', 'nymphomania', 'nymphomaniac', 'o c k', 'octopussy', 'octopussy', 'ogag', 'olok',
-    'omg', 'omorashi', 'one cup two girls', 'one guy', 'one guy one jar', 'one jar', 'ontherag', 'orafis', 'orga', 'orgasim',
-    'orgasim;', 'orgasims', 'orgasm', 'orgasmic', 'orgasms', 'orgasum', 'orgies', 'orgy', 'oriface', 'orifiss', 'orospu',
-    'osama', 'oven dodger', 'ovum', 'ovums', 'p e n i s', 'p i s', 'p u s s y', 'p.u.s.s.y.', 'p0rn',
-    'p3n1shead', 'p3nisfcker', 'p3nisfcukers', 'p3nisfvcker', 'p3nisfvckers', 'pack my fudge', 'packerfudgehead', 'packi', 'packie', 'packing fudge',
-    'packing fudgehead', 'packingfudge', 'packingfudgefucker', 'packingfudgefucking', 'packsomefudgefucker', 'packy', 'paddy', 'paedophile', 'paki', 'paki',
-    'pakie', 'pakingshet', 'pakis', 'pakshet', 'paky', 'pakyu', 'palesimian', 'palm jockey', 'pancake face', 'pancake face',
-    'pancake faces', 'panooch', 'pansies', 'pansy', 'panti', 'pantie', 'panties', 'panty', 'paska', 'payo',
-    'pcp', 'pearlnecklace', 'pecker', 'pecker', 'peckerhead', 'peckerhead', 'peckerwood', 'pedo', 'pedo', 'pedobear', 'pedobear',
-    'pedobears', 'pedophile', 'pedophilia', 'pedophiliac', 'pedophl', 'pedos', 'pedoz', 'peeenus', 'peeenusss', 'peehole',
-    'peen', 'peener', 'peenus', 'peepee', 'peepshow', 'peepshpw', 'pegging', 'peinus', 'pen1s', 'penas',
-    'pendejo', 'pendy', 'penetrate', 'penetration', 'peni5', 'penial', 'penile', 'penis', 'penis', 'penis-breath',
-    'penises', 'penisfcker', 'penisfuccer', 'penisfucker', 'penisfucker', 'penisfuckers', 'penisfvcker', 'penisfvckers', 'penishead', 'penisland',
-    'penislick', 'penislicker', 'penispuffer', 'penthouse', 'penus', 'penuus', 'perse', 'perv', 'perversion', 'pesteng yawa',
-    'peter', 'peter puffer', 'peyote', 'ph@ggots', 'phaggot', 'phaggots', 'phagot', 'phags', 'phalli', 'phallic',
-    'phone sex', 'phonesex', 'phuc', 'phuc', 'phucc', 'phuccer', 'phucchead', 'phuccing', 'phuck', 'phuck',
-    'phuck3r', 'phucked', 'phucker', 'phuckin', 'phucking', 'phuckings', 'phucks', 'phucup', 'phuk', 'phuk',
-    'phuked', 'phuked', 'phukeds', 'phuker', 'phukhead', 'phuking', 'phuking', 'phukings', 'phukk', 'phukked', 'phukked',
-    'phukkeds', 'phukker', 'phukker', 'phukking', 'phuks', 'phuks', 'phukshit', 'phuku', 'phukup', 'phungky',
-    'phuq', 'phuq', 'phuqs', 'phvckings', 'pi55', 'picaninny', 'piccaninny', 'picka', 'pickaninnies', 'pickaninny',
-    'piece of shit', 'pieceofshit', 'piefke', 'piefkes', 'pierdol', 'pig fucker', 'pigfucker', 'pigfucker', 'pigfuckers',
-    'pigfucking', 'pigfukker', 'piggyfuck', 'pigshit', 'piker', 'pikey', 'piky', 'pillow biter', 'pillow-biter', 'pillowbiter',
-    'pillu', 'pimmel', 'pimp', 'pimped', 'pimper', 'pimpis', 'pimpjuic', 'pimpjuice', 'pimpsimp', 'pindick',
-    'pinko', 'pis', 'pises', 'pisin', 'pising', 'pisof', 'piss', 'piss', 'piss face', 'piss off fuckhead',
-    'piss pig', 'piss shit', 'piss-off', 'pissed', 'pisser', 'pissers', 'pisses', 'pissflap', 'pissflaps', 'pisshead',
-    'pissin', 'pissing', 'pissoff', 'pissoff', 'pissoffs', 'pisspig', 'pizda', 'playboy', 'playgirl', 'pleasure chest',
-    'pleasurechest', 'pocha', 'pochas', 'pocho', 'pochos', 'pocketpool', 'pohm', 'pohms', 'poke', 'poki', 'pokpok',
-    'polac', 'polack', 'polacks', 'polak', 'pole licker', 'pole smoker', 'pole smoker', 'pole sucker', 'polesmoker', 'polesmoker',
-    'pollock', 'pollocks', 'pommie grant', 'pommie grants', 'pommy', 'ponyplay', 'poof', 'poon', 'poonani', 'poonany',
-    'poontang', 'poontsee', 'poop', 'poop chute', 'poopchute', 'pooper', 'pooperscooper', 'pooping', 'poorwhitetrash', 'popimp',
-    'porch monkey', 'porch monkey', 'porch monkies', 'porchmonkey', 'porn', 'pornflick', 'pornking', 'porno', 'pornography', 'pornos',
-    'pornprincess', 'pound town', 'poundtown', 'poyet', 'pplicker', 'pr0n', 'pr1c', 'pr1ck', 'pr1k', 'prairie nigger',
-    'prairie niggers', 'preteen', 'pric', 'prick', 'prick', 'prick-face', 'prick-gobbler', 'prick-head', 'prickhead', 'pricks',
-    'pricks', 'prig', 'prince albert piercing', 'pron', 'prostitute', 'pthc', 'pu$sy', "pu'keng", 'pu55i', 'pu55y',
-    'pu55y', 'pube', 'pube', 'pubes', 'pubic', 'pubiclice', 'pubis', 'pucha', 'puchanggala', 'puchangina',
-    'pudboy', 'pudd', 'puddboy', 'puke', 'puki', 'pukinangina', 'puking', 'pula', 'pull the pud', 'punani',
-    'punani', 'punanny', 'punany', 'punk ass mofoes', 'punkass', 'punkasses', 'punky', 'punta', 'puntang', 'punyeta',
-    'purinapricness', 'pusies', 'puss', 'puss', 'pusse', 'pussee', 'pusses', 'pussi', 'pussie', 'pussie', 'pussies',
-    'pussies', 'pussless', 'pusslicker', 'pussy', 'pussy', 'pussy', 'pussy cat', 'pussy fucker', 'pussy lick', 'pussy licker',
-    'pussy licking', 'pussycat', 'pussydestroyer', 'pussyeater', 'pussyfart', 'pussyfuck', 'pussyfucker', 'pussylicker', 'pussylickers', 'pussylicking',
-    'pussylips', 'pussylover', 'pussypalace', 'pussypounder', 'pussys', 'pussys', 'pussywhipped', 'pusy', 'puta', 'puta',
-    'puta', 'putang', 'putang ina', 'putangina', 'putanginamo', 'putaragis', 'puto', 'putragis', 'puuke', 'puuker',
-    'puussy', 'puyet', 'puzzies', 'puzzy', 'qahbeh', 'quashie', 'queaf', 'queef', 'queer', 'queerasses',
-    'queerhole', 'queero', 'queers', 'queers', 'queerz', 'quickie', 'quicky', 'quiff', 'quim', 'qweers',
-    'qweerz', 'qweir', 'r-tard', 'r-tards', 'r3t@rd', 'r3t@rded', 'r3tard', 'r5e', 'ra8s', 'raghead',
-    'raghead', 'ragheads', 'ragheads', 'ragtard', 'ramrod', 'rape', 'raped', 'raper', 'raping', 'rapist',
-    'rat bastard', 'rat baztad', 'ratbu', 'rautenberg', 'reacharound', 'rearend', 'rearentry', 'recktum', 'rectal', 'rectum',
-    'rectum', 'rectus', 'redleg', 'redlegs', 'redlight', 'redskin', 'redskin', 'redskins', 'reefer', 'reestie',
-    'reetard', 'reich', 'renob', 'rentafuck', 'rere', 'retard', 'retard', 'retarded', 'retardo', 'retardotron',
-    'retards', 'retardz', 'reverse cowgirl', 'reversecowgirl', 'rice monkey', 'rim job', 'rimjaw', 'rimjob', 'rimming', 'ritard',
-    'rosebuds', 'rosy palm', 'rosy palm and her 5 sisters', 'rosypalm', 'rosypalmandher5sisters', 'rosypalmandherefivesisters', 'round eyes', 'roundeye', 'rtard', 'rtards',
-    'rumprammer', 'ruski', 'russki', 'russkie', 'rusty trombone', 'rustytrombone', 's h i t', 's hit', 's hit', 's&m',
-    's-h-1-t', 's-h-i-t', 's-lut', 's-o-b', 's.h.i.t.', 's.o.b.', 's.o.b.', 's.o.b.s', 's/h/i/t', 's0b',
-    's_h_i_', 's_h_i_s', 's_h_i_t', 'sack', 'sadis', 'sadism', 'sadist', 'sadom', 'salad tosser', 'sambo',
-    'sambo', 'sambos', 'samckdaddy', 'sanchez', 'sand nigger', 'sand nigger', 'sand niggers', 'sandm', 'sandnigger', 'santorum',
-    'sausage jockey', 'sausagequeen', 'scag', 'scallywag', 'scamfuck', 'scank', 'scantily', 'scat', 'schaffer', 'scheiss',
-    'schizo', 'schlampe', 'schlong', 'schlong', 'schmuck', 'schvartse', 'schvartsen', 'schwartze', 'schwartzen', 'scissoring',
-    'screwyou', 'scroat', 'scrog', 'scrote', 'scrotum', 'scrotum', 'scrud', 'scumfuck', 'scumfucker', 'scumfvck',
-    'scummy', 'scut', 'seduce', 'semen', 'seppo', 'seppos', 'septics', 'sex', 'sex', 'sexcam', 'sexed',
-    'sexfarm', 'sexhound', 'sexhouse', 'sexi', 'sexing', 'sexkitten', 'sexo', 'sexpot', 'sexslave', 'sextogo',
-    'sextoy', 'sextoys', 'sexual', 'sexually', 'sexwhore', 'sexx', 'sexxi', 'sexxx', 'sexxxi', 'sexxxy',
-    'sexxy', 'sexy', 'sexymoma', 'sexyslim', 'sh! +', 'sh!+', 'sh!+', 'sh!t', 'sh1s', 'sh1t',
-    'sh1t', 'sh1t', 'sh1t3', 'sh1td1ck', 'sh1tdick', 'sh1te', 'sh1ter', 'sh1tfuck', 'sh1th3ad',
-    'sh1theads', 'sh1ts', 'sh1ts', 'sh1tsome', 'sh1tt', 'sh1tter', 'sh1tty', 'sh1tz', 'sh3mal3', 'sh3male',
-    'shag', 'shagger', 'shaggin', 'shagging', 'shamedame', 'sharmuta', 'sharmute', 'shat', 'shat', 'shav',
-    'shaved beaver', 'shaved pussy', 'shavedbeaver', 'shavedpussy', 'shawtypimp', 'she-male', 'sheeeet', 'sheeney', 'sheet', 'sheister',
-    'shemal3', 'shemale', 'shemale', 'shemales', 'shet', 'shhit', 'shi+', 'shi+', 'shi+e', 'shi+y',
-    'shiat', 'shibari', 'shibary', 'shiddick', 'shiester', 'shiesterfuck', 'shiesterfuckface', 'shiesterfuckhead', 'shiesterfucks', 'shinola',
-    'shipal', 'shipdit', 'shit', 'shit', 'shit', 'shit ass', 'shit face', 'shit for brains', 'shit fuck', 'shit fucker',
-    'shit head', 'shit licker', 'shit stain', 'shit-arse', 'shit-ass', 'shit-ass', 'shit-bag', 'shit-bagger', 'shit-bandit', 'shit-brain',
-    'shit-breath', 'shit-cunt', 'shit-dick', 'shit-eating', 'shit-face', 'shit-faced', 'shit-fit', 'shit-fucker', 'shit-head', 'shit-heel',
-    'shit-hole', 'shit-house', 'shit-load', 'shit-pot', 'shit-spitter', 'shit-stain', 'shit-stuffers', 'shit3', 'shitass', 'shitass',
-    'shitasses', 'shitassfucker', 'shitassfuckface', 'shitbag', 'shitbag', 'shitbagger', 'shitbird', 'shitblimp', 'shitblimp', 'shitblimps',
-    'shitbrain', 'shitbrain', 'shitbreath', 'shitcan', 'shitcunt', 'shitd1ck', 'shitdick', 'shitdick', 'shitdicks', 'shitdikk',
-    'shitdip', 'shite', 'shite', 'shiteater', 'shiteating', 'shiteblimps', 'shited', 'shited', 'shitedick', 'shitefuck',
-    'shitefulls', 'shitehead', 'shites', 'shitey', 'shitey', 'shitface', 'shitface', 'shitfaced', 'shitfaced', 'shitfacefuck',
-    'shitfacefucker', 'shitfck', 'shitfit', 'shitfk', 'shitforbrains', 'shitfreak', 'shitfuck', 'shitfuck', 'shitfucker', 'shitfucker',
-    'shitfuckhead', 'shitfuckmotherfucker', 'shitfucks', 'shitfudgefucker', 'shitfull', 'shitfvck', 'shithapens', 'shithappens', 'shithead', 'shithead',
-    'shitheadfucker', 'shitheadfuckface', 'shitheads', 'shitheel', 'shithole', 'shithole', 'shithouse', 'shiting', 'shitings', 'shitlist',
-    'shitload', 'shitola', 'shitoutofluck', 'shitpot', 'shits', 'shits', 'shitsdick', 'shitsfuck', 'shitsful', 'shitspitter',
-    'shitstain', 'shitt', 'shittastic', 'shittasticfuck', 'shitte', 'shitted', 'shitted', 'shitter', 'shitter', 'shitterfucker',
-    'shitters', 'shitti', 'shitties', 'shittiest', 'shittiest', 'shitting', 'shitting', 'shittings', 'shittings', 'shitty', 'shitty',
-    'shitty mofoes', 'shittydick', 'shittydicks', 'shittyfuck', 'shittyfuckface', 'shittyful', 'shity', 'shitz', 'shiz', 'shiznit', 'shlong',
-    'shmale', 'shortfuck', 'shota', 'shtfuk', 'shunga', 'shut the fuck up', 'shylock', 'shylock', 'shylocks', 'shyt', 'shyte',
-    'shytfeisterfuck', 'shytty', 'shyty', 'simp', 'sira ulo', 'siraulo', 'sissy', 'sissy', 'sixsixsix', 'sixty-nine',
-    'sixtynine', 'sixtyniner', 'sk@nks', 'sk@nky', 'sk@nkz', 'skag', 'skanck', 'skank', 'skank', 'skankbitch',
-    'skankee', 'skankey', 'skankfuck', 'skanks', 'skanks', 'skankwhore', 'skanky', 'skanky', 'skankybitch', 'skankywhore',
-    'skankz', 'skeet', 'skinflute', 'skribz', 'skullfuck', 'skum', 'skumbag', 'skurwysyn', 'skwa', 'skwe',
-    'sl@nteye', 'slag', 'slag', 'slantard', 'slanteye', 'slanteye', 'slanteye b1tch', 'slanteyes', 'slanteyeshit', 'slantfreak',
-    'slanty', 'slanty', 'slapper', 'sleezeball', 'slideitin', 'slimeball', 'slimebucket', 'slit', 'slopehead', 'slopeheads',
-    'sloper', 'slopers', 'slopey', 'slopeys', 'slopies', 'slopy', 'slut', 'slut', 'slut', 'slut hole',
-    'slutbag', 'slutbucket', 'slutdumper', 'slutkiss', 'sluts', 'sluts', 'slutt', 'slutting', 'slutty', 'slutty',
-    'slutwear', 'slutwhore', 'slutz', 'smackthemonkey', 'smeg', 'smegma', 'smegma', 'smut', 'smutty', 'snatch',
-    'snatch licker', 'snatchpatch', 'sniggered', 'sniggering', 'sniggers', 'snowback', 'snowballing', 'snownigger', 'snuff', 'soab',
-    'socksucker', 'sodom', 'sodomise', 'sodomite', 'sodomize', 'sodomy', 'son o bitch', 'son of a bitch', 'son of a bitch', 'son of a whore',
-    'son-of-a-bitch', 'son-of-a-bitch', 'son-of-a-whore', 'sonna bitch', 'sonofabitch', 'sonofabitch', 'sonofbitch', 'sonofabitches', 'sons of b1tches', 'sons of bitches',
-    'sons-of-bitches', 'sonz of bitchez', 'sooties', 'soppy bollucks', 'souse', 'soused', 'soyboy', 'spac', 'spaghettibender', 'spaghettinigger',
-    'spank', 'spanking', 'spankthemonkey', 'spastic', 'spearchucker', 'spearchuckers', 'sperm', 'sperm', 'spermacide', 'spermbag',
-    'spermhearder', 'spermherder', 'sphencter', 'sphincter', 'spic', 'spic', 'spicfuck', 'spick', 'spick', 'spicks',
-    'spics', 'spics', 'spicshit', 'spierdalaj', 'spig', 'spig', 'spigotty', 'spik', 'spik', 'spiks',
-    'spix', 'splittail', 'splooge', 'spludge', 'spooge', 'spook', 'spooks', 'spread legs', 'spreadeagle', 'spunk', 'spunk',
-    'spunk', 'spunky', 'sqeh', 'squa', 'squarehead', 'squareheads', 'squaw', 'squinty', 'squirting', 'stagg',
-    'stfu', 'stfu', 'stiffy', 'stoned', 'stoner', 'strap on', 'strapon', 'strappado', 'strip club', 'stripclub',
-    'stroking', 'stuinties', 'stump chewer', 'stupid fucker', 'stupid hoe', 'stupidasses', 'stupidfuck', 'stupidfucker', 'style doggy', 'suck',
-    'suck my cock', 'suck my d', 'suck my dick', 'suck off', 'suckdick', 'sucked', 'sucker', 'sucking', 'suckme', 'suckmyass',
-    'suckmydick', 'suckmytit', 'suckoff', 'suicide girl', 'suicide girls', 'suicidegirl', 'suicidegirls', 'suka', 'sultrywoman',
-    'sultrywomen', 'sum of a bitch', 'sumbitch', 'sumofabiatch', 'suso', 'susu', 'swallower', 'swalow', 'swamp guinea', 'swamp guineas',
-    'swastika', 'swine', 'swine fucker', 'syphilis', 't i t', 't i ts', 't1t', 't1tt1e5', 't1tties', 'tacohead',
-    'tacohead', 'tacoheads', 'tadger', 'tae', 'taena', 'taff', 'take off your', 'taking the piss', 'tallywacker', 'tamod',
-    'tanga', 'tangina', 'tar babies', 'tar baby', 'tar-baby', 'taragis', 'tarantado', 'tarbaby', 'tard', 'tard',
-    'tard asses', 'tart', 'taste my', 'tastemy', 'tawdry', 'tea bagging', 'teabagging', 'teat', 'teets', 'teez',
-    'terd', 'teste', 'testee', 'testes', 'testical', 'testicle', 'testicles', 'testis', 'tete', 'teti',
-    'text', 'thicklip', 'thicklips', 'thirdeye', 'thirdleg', 'threesome', 'threeway', 'throat yogurt', 'throater', 'throating',
-    'thumbzilla', 'thundercunt', 'tickle the pickle', 'tied up', 'tig ol bitties', 'tig old bitties', 'tight white', 'timang', 'timber nigger', 'timber nigger',
-    'timber niggers', 'timbernigger', 'tinil', 'tit', 'tit', 'titbitnipply', 'tite', 'titfuck', 'titfucker', 'titfuckin',
-    'titi', 'titi', 'titjob', 'titlicker', 'titlover', 'tits', 'tits', 'titt', 'tittie', 'tittie5',
-    'tittiefucker', 'titties', 'tittis', 'titty', 'tittyfuck', 'tittyfucker', 'tittys', 'tittywank', 'titwank', 'tity',
-    'to murder', 'tongethruster', 'tongue fucker', 'tongue fucking', 'tongue in a', 'tongueina', 'tonguethrust', 'tonguetramp', 'toots', 'topless',
-    'tortur', 'torture', 'tosser', 'tosser', 'tosser', 'tossing salad', 'towel head', 'towel heads', 'towelhead', 'towelhead',
-    'towelheads', 'towelshithead', 'trailertrash', 'tramp', 'trannie', 'tranny', 'transsexual', 'transvestite', 'transvestite', 'trashb1tch',
-    'trashbitch', 'trashbitches', 'trashbitchez', 'trashbtch', 'trasherbitch', 'trasherbitchs', 'trashybitches', 'tribadism', 'trisexual', 'trois',
-    'trots', 'trouser snake', 'trousersnake', 'tub girl', 'tubgirl', 'tuckahoe', 'tungaw', 'tunneloflove', 'turd', 'turd burgler',
-    'turdcutter', 'turdhead', 'turnon', 'tush', 'tushy', 'tw4t', 'tw@t', 'twa+', 'twat', 'twat',
-    'twat', 'twat', 'twat waffle', 'twatface', 'twathead', 'twatlips', 'twats', 'twats', 'twatt', 'twattish',
-    'twatty', 'twatwaffle', 'twatzilla', 'twink', 'twink', 'twinkie', 'two girls one cup', 'twobitwhore', 'twunt', 'twunter',
-    'udge packer', 'ukrop', 'ulol', 'ulul', 'unclefucker', 'unfuckable', 'ungas', 'upskirt', 'upskirts', 'uptheass',
-    'upthebutt', 'urethra play', 'urethraplay', 'urophilia', 'usama', 'useless fucker', 'ussys', 'uzi', 'v a g i n a', 'v14gra',
-    'v1gra', 'v4gra', 'va-j-j', 'va1jina', 'vag', 'vag', 'vag1na', 'vagiina', 'vagina', 'vaj1na',
-    'vajayjay', 'vajina', 'valium', 'venus mound', 'vgra', 'vibr', 'vibrater', 'vibrator', 'vigra', 'violet wand',
-    'virginbreaker', 'vittu', 'vixen', 'vjayjay', 'vorarephilia', 'voyeurweb', 'voyuer', 'vullva', 'vulva', 'vulva',
-    'w00se', 'w0p', 'w4nk3r', 'w4nker', 'w@nker', 'w@nkers', 'wab', 'wang', 'wang', 'wang wrangler',
-    'wank', 'wank', 'wank', 'wank off', 'wank3r', 'wank3rs', 'wankbastard', 'wanked', 'wanker', 'wanker',
-    'wankers', 'wankies', 'wanking', 'wanking', 'wanks', 'wanky', 'waysted', 'wazoo', 'we1back', 'weenie',
-    'weenie', 'weewee', 'weiner', 'weiner', 'welcher', 'wench', 'wet back', 'wet dream', 'wetb', 'wetback',
-    'wetback', 'wetbacks', 'wetbacks', 'wetdream', 'wetspot', 'wh00r', 'wh0r3', 'wh0re', 'wh0re', 'wh0reface',
-    'whack off', 'whacker', 'whash', 'what the fuck', 'whigger', 'whiggers', 'whiskeydick', 'whiskydick', 'whit', 'white power',
-    'white trash', 'whitenigger', 'whitepower', 'whitetrash', 'whitey', 'whiteys', 'whities', 'whoar', 'whoar', 'whoars',
-    'whop', 'whor3', 'whoralicious', 'whore', 'whore', 'whore', 'whorealicious', 'whorebag', 'whored', 'whoreface',
-    'whorefucker', 'whorehopper', 'whorehouse', 'whores', 'whores', 'whoring', 'wichser', 'wigga', 'wiggas', 'wigger',
-    'wigger', 'wiggers', 'willie', 'willies', 'williewanker', 'willy', 'willy-whacker', 'window licker', 'wise ass', 'wnker',
-    'wog', 'wogs', 'woose', 'wop', 'wop', 'wophead', 'worldsex', 'wrapping men', 'wrinkled starfish', 'wtf',
-    'wtf', 'wuss', 'wuzzie', 'x-rated', 'x-rated2g1c', 'xkwe', 'xrated', 'xtc', 'xx', 'xxx',
-    'xxxxxx', 'yank', 'yaoi', 'yarpie', 'yarpies', 'yed', 'yellow showers', 'yellowman', 'yellowshowers', 'yid',
-    'yids', 'yiffy', 'yobbo', 'yourboobs', 'yourpenis', 'yourtits', 'yury', 'zabourah', 'zigabo',
-    'zigabos', 'zip in the wire', 'zipperhead', 'zipperhead', 'zipperheads', 'zoophile', 'zoophilia', '🖕', 'tanga', 'tanginamo',
-    'fukcer', '8080', 'obob', 'OBOB', 'putangina', 'kys', 'nigga', 'nigger', 'naega', 'mamatay',
-    'papatayin', 'peenoise', 'fap', 'jerk', 'jerk off', 'Putang ina', 'Gago', 'Gaga', 'Tangina mo', 'Leche',
-    'Pakshet', 'Tarantado', 'Ulol', 'Bobo', 'Boba', 'Lintik ka', 'Bwisit', 'Punyeta', 'Hudas', 'Lintik',
-    'Sira ulo', 'Yawa', 'Tanga', 'Hampaslupa', 'Demonyo', 'Inutil', 'Shet', 'Kup*l', 'Amp*t', 'Ul*l',
-    'Peste', 'Bwesit', 'Kagaguhan', 'Peste', 'Sumpain ka', 'Anak ng teteng', 'Anak ng tinapa', 'Hayop ka', 'Walang kwenta',
-    'Ingrato', 'Suwapang', 'Madamot', 'Duwag', 'Salbahe', 'Burat', 'Tite mo', 'Kupal', 'Engot', 'Gunggong',
-    'Abnoy', 'Timang', 'Dumbass', 'Dipshit', 'Jackass', 'Son of a bitch', 'Asshat', 'Douchebag', 'Prick', 'Scumbag',
-    'Tool', 'Wanker', 'Nitwit', 'Half-wit', 'Moron', 'Blockhead', 'Knucklehead', 'Bonehead', 'Loser', 'Jerk',
-    'Screw you', 'Eat shit', 'Piss off', 'Bugger off', 'Dunce', 'Idiot', 'Fool', 'Numbskull', "a$shole", 'a$$hole',
-    'a$$', 'depota', 'buguk', 'bugok', 'tanaydana', 'dana', 'b0b0', 'engeng', 'eng-eng'
-]
-
+    # Read toxic keywords from CSV file - do this once and cache
+    # Use global variable to avoid reading file for every function call
+    global toxic_keywords
+    if 'toxic_keywords' not in globals():
+        import pandas as pd
+        import os
+        
+        # Read keywords from CSV
+        csv_path = 'extended_profanity_list.csv'
+        if os.path.exists(csv_path):
+            try:
+                # Try different ways to read the CSV depending on its structure
+                try:
+                    # If the CSV has headers
+                    df = pd.read_csv(csv_path)
+                    # Assuming the first column contains the keywords
+                    toxic_keywords = df.iloc[:, 0].tolist()
+                except:
+                    # If the CSV is just a list of words with no header
+                    toxic_keywords = pd.read_csv(csv_path, header=None)[0].tolist()
+                
+                # Remove any NaN values and convert to lowercase
+                toxic_keywords = [str(word).lower() for word in toxic_keywords if str(word) != 'nan']
+                print(f"Loaded {len(toxic_keywords)} toxic keywords from {csv_path}")
+            except Exception as e:
+                print(f"Error loading toxic keywords from CSV: {e}")
+                # Fallback to a small default list
+                toxic_keywords = ['fuck', 'shit', 'ass', 'bitch', 'damn', 'cunt', 'dick', 'pussy', 'nigger', 'faggot']
+        else:
+            print(f"Warning: Toxic keyword file {csv_path} not found. Using default keywords.")
+            # Fallback to a small default list
+            toxic_keywords = ['fuck', 'shit', 'ass', 'bitch', 'damn', 'cunt', 'dick', 'pussy', 'nigger', 'faggot']
     
     # Count toxic keywords (case insensitive)
     lower_text = text.lower()
@@ -664,19 +470,6 @@ def create_data_loaders(texts, labels, char_vocab=None, test_size=0.2, val_size=
     return train_loader, val_loader, test_loader, char_vocab
 
 def create_ood_test_set(input_path, output_path, criteria='long_texts', sample_size=500):
-    """
-    Create an Out-Of-Distribution (OOD) test set by selecting examples based on specified criteria.
-    
-    Args:
-        input_path (str): Path to the original data file
-        output_path (str): Path where the OOD test set will be saved
-        criteria (str): Criterion for selecting OOD examples:
-                        'long_texts' - select texts longer than average
-                        'short_texts' - select texts shorter than average
-                        'rare_words' - select texts with rare vocabulary
-                        'random' - randomly sample examples
-        sample_size (int): Number of examples to include in the OOD test set
-    """
     print(f"Creating OOD test set with criteria: {criteria}")
     
     # Load original data

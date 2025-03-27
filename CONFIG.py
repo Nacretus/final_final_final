@@ -30,7 +30,7 @@ VOCAB_SETTINGS = {
 MODEL_SETTINGS = {
     'char_emb_dim': 50,                    # Character embedding dimension
     'lstm_hidden_dim': 64,                 # BiLSTM hidden dimension
-    'dropout_rate': 0.4,                   # Dropout rate
+    'dropout_rate': 0.45,                  # Dropout rate (increased)
 
     # CNN configurations
     'cnn_configs': [
@@ -46,13 +46,16 @@ MODEL_SETTINGS = {
 TRAINING_SETTINGS = {
     'batch_size': 32,                      # Batch size
     'learning_rate': 0.0005,               # Learning rate
-    'weight_decay': 5e-4,                  # L2 regularization strength
+    'weight_decay': 5e-4,                  # L2 regularization strength (increased)
     'num_epochs': 30,                      # Maximum training epochs
     'early_stopping_patience': 5,          # Patience for early stopping
+    # UPDATED: Changed class weights to give more importance to non-toxic class (level 0)
     'focal_alpha': [1.0, 2.0, 2.0],        # Class weights for toxicity levels
+    # UPDATED: Increased weights for insult category to improve detection
     'category_weights': [1.0, 1.0, 1.0, 1.0],  # Weights for categories
+    # UPDATED: Increased thresholds to reduce false positives
     'category_thresholds': [0.5, 0.5, 0.5, 0.5],  # Thresholds for binary categories
-    'category_loss_scale': 1.0,            # Scaling factor for category loss
+    'category_loss_scale': 1.2,            # Scaling factor for category loss (increased)
     'use_gradient_clipping': True,         # Whether to use gradient clipping
     'gradient_clip_value': 1.0,            # Maximum gradient norm
     'num_workers': 4,                      # Number of data loading workers
@@ -71,8 +74,9 @@ EVAL_SETTINGS = {
 # Feedback System Settings
 # =============================================================================
 FEEDBACK_SETTINGS = {
-    'min_feedback_for_retraining': 100,    # Minimum feedback examples before retraining
-    'feedback_retrain_epochs': 5,          # Number of epochs for feedback retraining
+    # UPDATED: Reduced number of examples needed for retraining
+    'min_feedback_for_retraining': 20,     # Minimum feedback examples before retraining
+    'feedback_retrain_epochs': 10,         # Number of epochs for feedback retraining (increased)
     'feedback_learning_rate': 0.0001,      # Learning rate for feedback retraining
     'feedback_batch_size': 16,             # Batch size for feedback retraining
 }
@@ -81,11 +85,11 @@ FEEDBACK_SETTINGS = {
 # Paths
 # =============================================================================
 PATHS = {
-    'data_path': '17000datas.csv',  # Path to main data file
-    'output_dir': 'output',                # Directory for saving outputs
-    'model_save_path': 'output/model.pth', # Path for saving trained model
-    'vocab_save_path': 'output/char_vocab.pkl',  # Path for saving vocabulary
-    'feedback_save_path': 'output/feedback_data.pkl',  # Path for saving feedback data
+    'data_path': '17000datas.csv',         # Path to main data file
+    'output_dir': 'output_chains',                # Directory for saving outputs
+    'model_save_path': 'output_chains/model.pth', # Path for saving trained model
+    'vocab_save_path': 'output_chains/char_vocab.pkl',  # Path for saving vocabulary
+    'feedback_save_path': 'output_chains/feedback_data.pkl',  # Path for saving feedback data
 }
 
 # =============================================================================

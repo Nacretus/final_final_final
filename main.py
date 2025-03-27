@@ -1,13 +1,16 @@
-from dataprocessing import*
-from simple_model_architecture import*
-from training_eval import*
+from dataprocessing import *
+from simple_model_architecture import *
+from training_eval import *
+from classifier_chain_model import ClassifierChainModel
+from classifier_chain_training import train_classifier_chain, evaluate_classifier_chain
+from classifier_chain_integration import batch_predict_with_chain, interactive_chain_prediction
 
 # =============================================================================
 # Main Function
 # =============================================================================
 
 def main():
-    """Main function to run the training and evaluation pipeline."""
+    """Main function to run the training and evaluation pipeline with classifier chain."""
     # Define configuration
     global CONFIG
     CONFIG = {
@@ -44,7 +47,7 @@ def main():
         
         # Paths
         'data_path': '17000datas.csv',
-        'output_dir': 'output',
+        'output_dir': 'output_chains',
         
         # Seed for reproducibility
         'seed': 42
@@ -85,42 +88,40 @@ def main():
         seed=CONFIG['seed']
     )
     
-    # Create model
-    from simple_model_architecture import SimplifiedCharCNNBiLSTM
-    
+    # Create base model for feature extraction
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    model = SimplifiedCharCNNBiLSTM(
+    base_model = SimplifiedCharCNNBiLSTM(
         n_chars=char_vocab.n_chars,
         char_emb_dim=CONFIG['char_emb_dim'],
         lstm_hidden_dim=CONFIG['lstm_hidden_dim'],
         dropout_rate=CONFIG['dropout_rate']
     ).to(device)
     
-    # Train model
-    print("\nTraining model...")
-    model, best_metrics, metrics_history = train_model(
-        model, train_loader, val_loader,
+    # Create the classifier chain model
+    print("\nInitializing classifier chain model...")
+    chain_model = ClassifierChainModel(base_model).to(device)
+    
+    # Train the classifier chain model
+    print("\nTraining classifier chain model...")
+    chain_model, best_metrics, metrics_history = train_classifier_chain(
+        chain_model, train_loader, val_loader,
         num_epochs=CONFIG['num_epochs'],
         learning_rate=CONFIG['learning_rate']
     )
     
     # Save model
-    model_save_path = os.path.join(CONFIG['output_dir'], 'model.pth')
-    torch.save(model.state_dict(), model_save_path)
+    model_save_path = os.path.join(CONFIG['output_dir'], 'chain_model.pth')
+    torch.save(chain_model.state_dict(), model_save_path)
+    print(f"Model saved to {model_save_path}")
     
     # Save vocabulary
     vocab_save_path = os.path.join(CONFIG['output_dir'], 'char_vocab.pkl')
     char_vocab.save(vocab_save_path)
-    
-    # Save config
-    import json
-    config_save_path = os.path.join(CONFIG['output_dir'], 'config.json')
-    with open(config_save_path, 'w') as f:
-        json.dump(CONFIG, f, indent=4)
+    print(f"Vocabulary saved to {vocab_save_path}")
     
     # Evaluate on test set
-    print("\nEvaluating on test set...")
-    test_metrics = evaluate_on_dataset(model, char_vocab, test_loader.dataset)
+    print("\nEvaluating classifier chain model on test set...")
+    test_metrics = evaluate_classifier_chain(chain_model, test_loader)
     
     # Create an OOD test set
     from dataprocessing import create_ood_test_set
@@ -128,16 +129,11 @@ def main():
     ood_data_path = os.path.join(CONFIG['output_dir'], 'ood_test_data.csv')
     create_ood_test_set(CONFIG['data_path'], ood_data_path, criteria='long_texts')
     
-    # Comprehensive evaluation
-    print("\nPerforming comprehensive evaluation...")
-    eval_results = comprehensive_evaluation(model, char_vocab, CONFIG['data_path'], ood_data_path)
-    
-    # Interactive prediction
-    feedback_manager = ImprovedFeedbackManager(model, char_vocab)
-    interactive_prediction(model, char_vocab, feedback_manager)
+    # Run interactive prediction 
+    interactive_chain_prediction(chain_model, char_vocab)
     
     print("\nEvaluation complete!")
-    return model, char_vocab, feedback_manager
+    return chain_model, char_vocab, test_metrics
 
 if __name__ == "__main__":
     main()
