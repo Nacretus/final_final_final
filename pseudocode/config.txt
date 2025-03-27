@@ -1,0 +1,28 @@
+# Configuration settings
+CONFIG = {
+    # Data settings
+    'text_column': 'comment',
+    'toxicity_column': 'toxicity_level',
+    'category_columns': ['insult', 'profanity', 'threat', 'identity_hate'],
+    'max_chars': 300,
+    
+    # Model settings
+    'char_emb_dim': 50, 
+    'lstm_hidden_dim': 64,
+    'dropout_rate': 0.4,
+    'cnn_configs': [...],  # CNN layer configurations
+    
+    # Training settings
+    'batch_size': 32,
+    'learning_rate': 0.0005,
+    'num_epochs': 30,
+    'early_stopping_patience': 5,
+    'category_thresholds': [0.5, 0.5, 0.5, 0.5],
+    
+    # Paths
+    'data_path': '17000datas.csv',
+    'output_dir': 'output'
+}
+
+# Set random seeds for reproducibility
+SET_RANDOM_SEEDS(CONFIG.seed)

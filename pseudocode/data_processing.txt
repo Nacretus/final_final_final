@@ -1,0 +1,71 @@
+FUNCTION preprocess_text(text, max_len):
+    # Convert to lowercase
+    text = LOWERCASE(text)
+    
+    # Replace URLs with token
+    text = REPLACE_URLS(text, "<URL>")
+    
+    # Normalize whitespace
+    text = NORMALIZE_WHITESPACE(text)
+    
+    # Truncate if needed
+    IF LENGTH(text) > max_len:
+        text = text[:max_len]
+    
+    RETURN text
+
+FUNCTION extract_toxicity_features(text):
+    features = {}
+    
+    # Check for ALL CAPS words
+    words = SPLIT(text)
+    all_caps_words = [w FOR w IN words IF LENGTH(w) > 2 AND IS_UPPER(w)]
+    features['all_caps_ratio'] = LENGTH(all_caps_words) / MAX(1, LENGTH(words))
+    
+    # Count toxic keywords
+    keyword_count = 0
+    detected_keywords = []
+    
+    FOR keyword IN toxic_keywords:
+        IF keyword IN LOWERCASE(text):
+            INCREMENT keyword_count
+            ADD keyword TO detected_keywords
+    
+    features['toxic_keyword_count'] = keyword_count
+    features['toxic_keyword_ratio'] = keyword_count / MAX(1, LENGTH(words))
+    features['detected_keywords'] = detected_keywords
+    
+    RETURN features
+
+CLASS ToxicityDataset:
+    INIT(texts, labels, char_vocab, max_len):
+        # Preprocess texts
+        processed_texts = [preprocess_text(text, max_len) FOR text IN texts]
+        
+        # Extract toxicity features
+        toxicity_features = [extract_toxicity_features(text) FOR text IN processed_texts]
+        
+        # Initialize character vocabulary if not provided
+        IF char_vocab IS NULL:
+            char_vocab = CREATE new HybridCharacterVocabulary
+            char_vocab.build_from_texts(processed_texts, min_count=2)
+    
+    __getitem__(idx):
+        # Get text and features
+        text = processed_texts[idx]
+        features = toxicity_features[idx]
+        
+        # Encode text
+        char_ids = char_vocab.encode_text(text, max_len)
+        
+        # Prepare item with all data
+        item = {
+            'char_ids': TENSOR(char_ids),
+            'labels': TENSOR(labels[idx]) IF labels EXISTS ELSE NULL,
+            'text': text,
+            'all_caps_ratio': TENSOR(features['all_caps_ratio']),
+            'toxic_keyword_count': TENSOR(features['toxic_keyword_count']),
+            'toxic_keyword_ratio': TENSOR(features['toxic_keyword_ratio'])
+        }
+        
+        RETURN item

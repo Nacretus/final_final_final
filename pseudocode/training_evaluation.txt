@@ -1,0 +1,80 @@
+FUNCTION train_model(model, train_loader, val_loader, num_epochs, learning_rate):
+    # Setup loss functions with balanced weights
+    toxicity_criterion = CrossEntropyLoss(weight=CONFIG.focal_alpha)
+    category_criterion = BCEWithLogitsLoss(pos_weight=CONFIG.category_weights)
+    
+    # Optimizer
+    optimizer = Adam(model.parameters(), lr=learning_rate, weight_decay=CONFIG.weight_decay)
+    
+    # Learning rate scheduler
+    scheduler = ReduceLROnPlateau(optimizer, factor=0.5, patience=3)
+    
+    # Track best model
+    best_val_loss = INFINITY
+    best_model_state = NULL
+    patience_counter = 0
+    
+    # Training loop
+    FOR epoch IN RANGE(num_epochs):
+        # Training phase
+        model.train()
+        train_loss = 0
+        
+        FOR batch IN train_loader:
+            # Get data
+            char_ids = batch['char_ids']
+            toxicity_labels = batch['labels'][:, 0]
+            category_labels = batch['labels'][:, 1:]
+            
+            # Get toxicity features
+            toxicity_features = STACK([
+                batch['all_caps_ratio'],
+                batch['toxic_keyword_count'],
+                batch['toxic_keyword_ratio']
+            ])
+            
+            # Forward pass
+            toxicity_output, category_output = model(char_ids, toxicity_features)
+            
+            # Calculate loss
+            toxicity_loss = toxicity_criterion(toxicity_output, toxicity_labels)
+            category_loss = category_criterion(category_output, category_labels)
+            loss = toxicity_loss + category_loss * CONFIG.category_loss_scale
+            
+            # Backpropagation
+            optimizer.zero_grad()
+            loss.backward()
+            
+            # Gradient clipping
+            IF CONFIG.use_gradient_clipping:
+                clip_grad_norm_(model.parameters(), CONFIG.gradient_clip_value)
+            
+            optimizer.step()
+            train_loss += loss.item()
+        
+        # Validation phase
+        model.eval()
+        val_loss = 0
+        val_predictions = []
+        val_labels = []
+        
+        # Validation loop...
+        
+        # Update scheduler
+        scheduler.step(val_loss)
+        
+        # Early stopping
+        IF val_loss < best_val_loss:
+            best_val_loss = val_loss
+            best_model_state = COPY(model.state_dict())
+            patience_counter = 0
+        ELSE:
+            INCREMENT patience_counter
+            
+        IF patience_counter >= CONFIG.early_stopping_patience:
+            BREAK
+    
+    # Load best model
+    model.load_state_dict(best_model_state)
+    
+    RETURN model, best_metrics, metrics_history

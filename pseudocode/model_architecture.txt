@@ -1,0 +1,85 @@
+CLASS CNNLayer:
+    INIT(input_channels, large_features, small_features, kernel_size, pool_size, batch_norm):
+        # Initialize convolutional layers
+        conv = Conv1D(input_channels, large_features, kernel_size, padding=kernel_size//2)
+        batch_norm_layer = BatchNorm1D(large_features) IF batch_norm ELSE NULL
+        pool = MaxPool1D(pool_size) IF pool_size EXISTS ELSE NULL
+        reduce = Conv1D(large_features, small_features, kernel_size=1)
+    
+    FORWARD(x):
+        # Store input for potential residual connection
+        residual = x IF input_channels == output_channels ELSE NULL
+        
+        # Apply convolution and activation
+        x = conv(x)
+        IF batch_norm_layer EXISTS:
+            x = batch_norm_layer(x)
+        x = relu(x)
+        
+        # Apply pooling if exists
+        IF pool EXISTS:
+            x = pool(x)
+            residual = NULL  # Can't use residual if shape changed
+        
+        # Apply dimension reduction
+        x_reduced = reduce(x)
+        x_reduced = relu(x_reduced)
+        
+        # Apply residual connection if possible
+        IF residual EXISTS:
+            x = x_reduced + residual
+        ELSE:
+            x = x_reduced
+        
+        RETURN x
+
+CLASS SimplifiedCharCNNBiLSTM:
+    INIT(n_chars, char_emb_dim, lstm_hidden_dim, dropout_rate):
+        # Character embedding
+        char_embedding = Embedding(n_chars, char_emb_dim, padding_idx=0)
+        
+        # CNN layers
+        cnn_layers = []
+        FOR EACH config IN cnn_configs:
+            ADD CNNLayer(input_channels, config.large_features, config.small_features, 
+                      config.kernel, config.pool, config.batch_norm) TO cnn_layers
+        
+        # LSTM layer
+        lstm = BiLSTM(input_size=256, hidden_size=lstm_hidden_dim)
+        
+        # Feature processing
+        feature_fc = Linear(3, 16)  # Process 3 toxicity features
+        
+        # Output layers
+        fc_toxicity = Linear(lstm_hidden_dim*2 + 16, 3)  # 3 toxicity levels
+        fc_category = Linear(lstm_hidden_dim*2 + 16, 4)  # 4 toxicity categories
+    
+    FORWARD(char_ids, toxicity_features):
+        # Get character embeddings
+        char_embeds = char_embedding(char_ids)
+        x = PERMUTE(char_embeds, [0, 2, 1])
+        
+        # Apply CNN layers
+        FOR EACH layer IN cnn_layers:
+            x = layer(x)
+        
+        # Reshape and apply LSTM
+        x = PERMUTE(x, [0, 2, 1])
+        lstm_out, _ = lstm(x)
+        
+        # Global max pooling
+        global_max_pool, _ = MAX(lstm_out, dim=1)
+        
+        # Process toxicity features
+        IF toxicity_features EXISTS:
+            feature_vec = feature_fc(toxicity_features)
+            feature_vec = relu(feature_vec)
+            combined = CONCATENATE(global_max_pool, feature_vec)
+        ELSE:
+            combined = CONCATENATE(global_max_pool, ZEROS(batch_size, 16))
+        
+        # Final outputs
+        toxicity_output = fc_toxicity(combined)
+        category_output = fc_category(combined)
+        
+        RETURN toxicity_output, category_output

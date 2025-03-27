@@ -1,0 +1,41 @@
+CLASS MCDropoutModel:
+    INIT(base_model):
+        self.base_model = base_model
+    
+    enable_dropout():
+        FOR EACH module IN base_model.modules():
+            IF module IS Dropout:
+                module.train()  # Enable dropout during inference
+    
+    predict_with_uncertainty(char_ids, toxicity_features, num_samples=20):
+        # Set to evaluation mode but enable dropout
+        base_model.eval()
+        enable_dropout()
+        
+        toxicity_outputs = []
+        category_outputs = []
+        
+        # Run multiple forward passes
+        FOR _ IN RANGE(num_samples):
+            toxicity_output, category_output = base_model(char_ids, toxicity_features)
+            toxicity_outputs.APPEND(softmax(toxicity_output))
+            category_outputs.APPEND(sigmoid(category_output))
+        
+        # Calculate statistics
+        toxicity_samples = STACK(toxicity_outputs)
+        category_samples = STACK(category_outputs)
+        
+        mean_toxicity = MEAN(toxicity_samples, dim=0)
+        mean_category = MEAN(category_samples, dim=0)
+        
+        # Calculate uncertainties
+        toxicity_uncertainty = STD(toxicity_samples, dim=0)
+        category_uncertainty = STD(category_samples, dim=0)
+        
+        RETURN {
+            'toxicity_probs': mean_toxicity,
+            'category_probs': mean_category,
+            'toxicity_uncertainty': toxicity_uncertainty,
+            'category_uncertainty': category_uncertainty,
+            'predictive_entropy': -SUM(mean_toxicity * LOG(mean_toxicity + ε))
+        }

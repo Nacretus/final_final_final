@@ -1,0 +1,30 @@
+CLASS ImprovedFeedbackManager:
+    INIT(model, char_vocab):
+        self.model = model
+        self.char_vocab = char_vocab
+        self.feedback_examples = []
+        self.original_model_state = COPY(model.state_dict())
+        self.min_feedback_for_retraining = 100
+    
+    add_feedback(text, model_prediction, correct_toxicity, correct_categories):
+        # Add feedback example
+        self.feedback_examples.APPEND({
+            'text': text,
+            'pred_toxicity': model_prediction['toxicity']['level'],
+            'true_toxicity': correct_toxicity,
+            'pred_categories': [prediction['detected'] for prediction in model_prediction['categories'].values()],
+            'true_categories': correct_categories
+        })
+        
+        RETURN LENGTH(self.feedback_examples)
+    
+    perform_retraining(epochs=5, learning_rate=0.0001):
+        # Check if enough feedback examples
+        IF LENGTH(self.feedback_examples) < self.min_feedback_for_retraining:
+            RETURN FALSE
+        
+        # Create dataset from feedback
+        # Split into train/validation sets
+        # Retrain model on feedback data
+        # Return success
+        RETURN TRUE

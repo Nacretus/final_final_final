@@ -1,0 +1,32 @@
+CLASS HybridCharacterVocabulary:
+    INIT(fixed_alphabet, max_vocab_size):
+        # Initialize with special tokens
+        char_to_idx = {'<PAD>': 0, '<UNK>': 1}
+        idx_to_char = {0: '<PAD>', 1: '<UNK>'}
+        n_chars = 2
+        
+        # Add standard alphabet and special characters
+        IF fixed_alphabet EXISTS:
+            FOR EACH char IN fixed_alphabet:
+                ADD char TO vocabulary
+        
+    build_from_texts(texts, min_count):
+        # Count character frequencies
+        FOR EACH text IN texts:
+            FOR EACH char IN text:
+                INCREMENT char_count[char]
+        
+        # Add frequent characters to vocabulary
+        FOR EACH char, count IN SORTED(char_count):
+            IF char NOT IN vocabulary AND count >= min_count:
+                ADD char TO vocabulary
+    
+    encode_text(text, max_len):
+        # Create array filled with pad tokens
+        indices = ARRAY(max_len, PAD_TOKEN)
+        
+        # Fill with character indices
+        FOR i, char IN ENUMERATE(text[:max_len]):
+            indices[i] = char_to_idx.get(char, UNK_TOKEN)
+        
+        RETURN indices

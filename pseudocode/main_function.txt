@@ -1,0 +1,44 @@
+FUNCTION main():
+    # Create output directory
+    CREATE_DIRECTORY(CONFIG.output_dir)
+    
+    # Load data
+    texts, labels = load_data_from_csv(CONFIG.data_path)
+    
+    # Create data loaders and vocabulary
+    train_loader, val_loader, test_loader, char_vocab = create_data_loaders(texts, labels)
+    
+    # Create model
+    model = SimplifiedCharCNNBiLSTM(
+        n_chars=char_vocab.n_chars,
+        char_emb_dim=CONFIG.char_emb_dim,
+        lstm_hidden_dim=CONFIG.lstm_hidden_dim,
+        dropout_rate=CONFIG.dropout_rate
+    )
+    
+    # Train model
+    model, metrics, history = train_model(
+        model, train_loader, val_loader,
+        num_epochs=CONFIG.num_epochs,
+        learning_rate=CONFIG.learning_rate
+    )
+    
+    # Save model and vocabulary
+    SAVE(model, CONFIG.output_dir + '/model.pth')
+    SAVE(char_vocab, CONFIG.output_dir + '/char_vocab.pkl')
+    
+    # Evaluate on test set
+    test_metrics = evaluate_on_dataset(model, char_vocab, test_loader.dataset)
+    
+    # Create out-of-distribution test set
+    ood_data_path = CONFIG.output_dir + '/ood_test_data.csv'
+    create_ood_test_set(CONFIG.data_path, ood_data_path, criteria='long_texts')
+    
+    # Comprehensive evaluation
+    eval_results = comprehensive_evaluation(model, char_vocab, CONFIG.data_path, ood_data_path)
+    
+    # Interactive prediction with feedback
+    feedback_manager = ImprovedFeedbackManager(model, char_vocab)
+    interactive_prediction(model, char_vocab, feedback_manager)
+    
+    RETURN model, char_vocab, feedback_manager
