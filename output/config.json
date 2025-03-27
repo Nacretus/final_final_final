@@ -1,0 +1,47 @@
+{
+    "text_column": "comment",
+    "toxicity_column": "toxicity_level",
+    "category_columns": [
+        "insult",
+        "profanity",
+        "threat",
+        "identity_hate"
+    ],
+    "max_chars": 300,
+    "batch_size": 32,
+    "num_workers": 4,
+    "use_hybrid_vocabulary": true,
+    "alphabet": "abcdefghijklmnopqrstuvwxyz0123456789-,;.!?:'\"/\\|_@#$%^&*~`+ =<>()[]{}",
+    "max_vocab_size": 500,
+    "char_emb_dim": 50,
+    "lstm_hidden_dim": 64,
+    "dropout_rate": 0.4,
+    "focal_alpha": [
+        1.0,
+        2.0,
+        2.0
+    ],
+    "category_weights": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+    ],
+    "category_thresholds": [
+        0.5,
+        0.5,
+        0.5,
+        0.5
+    ],
+    "category_loss_scale": 1.0,
+    "learning_rate": 0.0005,
+    "weight_decay": 0.0005,
+    "num_epochs": 30,
+    "early_stopping_patience": 5,
+    "use_language_detection": true,
+    "use_gradient_clipping": true,
+    "gradient_clip_value": 1.0,
+    "data_path": "17000datas.csv",
+    "output_dir": "output",
+    "seed": 42
+}
