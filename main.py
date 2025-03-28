@@ -33,21 +33,21 @@ def main():
         'dropout_rate': 0.4,
         
         # Updated training parameters
-        'focal_alpha': [3.0, 1.0, 1.0],            # Increased weight for non-toxic samples
-        'category_weights': [2.0, 1.5, 1.8, 2.0],  # Higher weights for insult, threat and identity_hate
-        'category_thresholds': [0.4, 0.5, 0.4, 0.4], # Lower thresholds for better recall
-        'category_loss_scale': 1.5,                # Increased scaling for category loss
-        'learning_rate': 0.0005,
-        'weight_decay': 5e-4,  # L2 regularization
+        'focal_alpha': [1.5, 1.0, 1.0],            # Increased weight for non-toxic samples
+        'category_weights': [1.8, 1.5, 1.8, 2.0],  # Higher weights for insult, threat and identity_hate
+        'category_thresholds': [0.80, 0.85, 0.75, 0.75], # Lower thresholds for better recall
+        'category_loss_scale': 1.0,                # Increased scaling for category loss
+        'learning_rate': 0.0003,
+        'weight_decay': 8e-4,  # L2 regularization
         'num_epochs': 30,
-        'early_stopping_patience': 3,
+        'early_stopping_patience': 5,
         'use_language_detection': True,
         'use_gradient_clipping': True,
         'gradient_clip_value': 1.0,
         
         # Monte Carlo Dropout settings
         'mc_dropout_samples': 20,
-        'uncertainty_threshold': 0.08,  # Threshold for high uncertainty warning
+        'uncertainty_threshold': 0.1,  # Threshold for high uncertainty warning
         
         # Paths
         'data_path': '17000datas.csv',

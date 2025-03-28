@@ -1,0 +1,184 @@
+the output_chainV2 is has the latest model and it is loaded by the run_improved_model.py
+it can detect toxic, very toxic, and not toxic decently
+some categories triggers but not often specially threat and identity hate 
+
+Enter text to classify: hi this is a non toxic comment
+Safe words detected: ['comment', 'this', 'this is']... - Boosting thresholds by 0.450
+
+=== Classification Results === !!!!CORRECT PREDICTION!!!!
+Text: hi this is a non toxic comment
+Detected Language: en
+
+Toxicity: TOXIC (Level 1)
+Confidence: 0.9738
+Prediction Confidence: HIGH (clear decision)
+Severity: Toxic
+Severity Confidence: 0.0152
+
+Detected Categories:
+  None
+
+Content Analysis:
+  ALL CAPS Usage: 0.00 (0.0% of words)
+  Toxic Keywords: 0 (0.0% of words)
+  Safe Words/Phrases: 5 (71.4% of words)
+  Toxicity-Safety Ratio: N/A
+
+  Detected Safe Words/Phrases:
+    - 'comment'
+    - 'this'
+    - 'this is'
+    - 'is a'
+    - 'this is'
+
+
+Enter text to classify: tangina naman nito!! hulog kita dyan sa hagdan kala mo!?
+Safe words detected: ['ang', 'yan', 'naman']... - Boosting thresholds by 0.450
+
+=== Classification Results === !!!!CORRECT PREDICTION IN THE LEVEL BUT DOES NOT TRIGGER THREAT!!!!
+Text: tangina naman nito!! hulog kita dyan sa hagdan kala mo!?
+Detected Language: tl
+
+Toxicity: TOXIC (Level 1)
+Confidence: 0.9873
+Prediction Confidence: HIGH (clear decision)
+Severity: Toxic
+Severity Confidence: 0.0068
+
+Detected Categories:
+  None
+
+Content Analysis:
+  ALL CAPS Usage: 0.00 (0.0% of words)
+  Toxic Keywords: 2 (20.0% of words)
+  Safe Words/Phrases: 12 (120.0% of words)
+  Toxicity-Safety Ratio: N/A
+
+  Detected Toxic Keywords:
+    - 'tangina'
+    - 'tangi'
+
+  Detected Safe Words/Phrases:
+    - 'ang'
+    - 'yan'
+    - 'naman'
+    - 'ang'
+    - 'naman'
+    - 'ito'
+    - 'yan'
+    - 'dyan'
+    - 'kala'
+    - 'kita'
+    - 'na naman'
+    - 'kala mo'
+
+Enter text to classify: gay people should kill themselves dick suckers
+Safe words detected: ['people', 'kill', 'the']... - Boosting thresholds by 0.450
+
+=== Classification Results === !!!!WRONG PREDICTION IT SHOULD BE VERY TOXIC, IDENTITY HATE!!!!
+Text: gay people should kill themselves dick suckers
+Detected Language: en
+
+Toxicity: TOXIC (Level 1)
+Confidence: 0.9999
+Prediction Confidence: HIGH (clear decision)
+Severity: Toxic
+Severity Confidence: 0.5121
+
+Detected Categories:
+  None
+
+Content Analysis:
+  ALL CAPS Usage: 0.00 (0.0% of words)
+  Toxic Keywords: 5 (71.4% of words)
+  Safe Words/Phrases: 3 (42.9% of words)
+  Toxicity-Safety Ratio: N/A
+
+  Detected Toxic Keywords:
+    - 'dick'
+    - 'dick'
+    - 'dick sucker'
+    - 'suck'
+    - 'sucker'
+
+  Detected Safe Words/Phrases:
+    - 'people'
+    - 'kill'
+    - 'the'
+
+Enter text to classify: you stupid piece of shit
+
+=== Classification Results === !!!!CORRECT PREDICTION!!!!
+Text: you stupid piece of shit
+Detected Language: en
+
+Toxicity: TOXIC (Level 1)
+Confidence: 0.9978
+Prediction Confidence: HIGH (clear decision)
+Severity: Toxic
+Severity Confidence: 0.0570
+
+Detected Categories:
+  - INSULT
+    Confidence: 0.9855
+
+Content Analysis:
+  ALL CAPS Usage: 0.00 (0.0% of words)
+  Toxic Keywords: 4 (80.0% of words)
+  Safe Words/Phrases: 1 (20.0% of words)
+  Toxicity-Safety Ratio: N/A
+
+  Detected Toxic Keywords:
+    - 'piece of shit'
+    - 'shit'
+    - 'shit'
+    - 'shit'
+
+  Detected Safe Words/Phrases:
+    - 'you'
+
+
+TEXT EXAMPLES 
+"goodafternoon this is a not toxic comment",
+        "i love you",
+        "things need to adjust",
+        "nakita mo ba yung comment in sir kanina sa gc",
+        "bitch isa pa pasasagasa kita sa truck",
+        "you fucking suck",
+        "I really like your work",
+        "kill yourself",
+        "this is a normal comment, hello"
+
+
+        PREDICTION RESULT FROM TEXT EXAMPLES 
+
+================================================================================
+Text                                     Standard        MC Dropout      MC Uncertainty
+================================================================================
+goodafternoon this is a not toxic com... not toxic (0)  not toxic (0)     N/A
+--------------------------------------------------------------------------------
+i love you                               not toxic (0)  not toxic (0)     N/A
+--------------------------------------------------------------------------------
+things need to adjust                    not toxic (0)  toxic (1)     N/A
+--------------------------------------------------------------------------------
+nakita mo ba yung comment in sir kani... not toxic (0)  not toxic (0)     N/A
+--------------------------------------------------------------------------------
+bitch isa pa pasasagasa kita sa truck    not toxic (0)  not toxic (0)     N/A
+--------------------------------------------------------------------------------
+you fucking suck                         toxic (1)  toxic (1)     N/A
+  Categories:
+  Standard: profanity
+  MC: profanity
+--------------------------------------------------------------------------------
+I really like your work                  toxic (1)  toxic (1)     N/A
+  Categories:
+  Standard: None
+  MC: None
+--------------------------------------------------------------------------------
+kill yourself                            very toxic (2)  very toxic (2)     N/A
+  Categories:
+  Standard: threat
+  MC: threat
+--------------------------------------------------------------------------------
+this is a normal comment, hello          not toxic (0)  toxic (1)     N/A
+--------------------------------------------------------------------------------

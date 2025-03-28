@@ -26,50 +26,47 @@ class ClassifierChainModel(nn.Module):
         if hasattr(base_model, 'fc_toxicity'):
             combined_dim = base_model.fc_toxicity.in_features
         else:
-            # Default if not available
-            combined_dim = 144  # Typical value from your architecture
+            # Default if not available - need to fix this!
+            # The error is happening because the base_model feature processing changed
+            # from 16 to 32 dimensions, but this wasn't updated here
+            combined_dim = 160  # BiLSTM (64*2) + feature dimension (32)
         
         # Chain link 1: Binary toxicity classifier (toxic or not)
         self.toxicity_binary = nn.Linear(combined_dim, 1)
+        # Initialize weights before applying weight norm to avoid the weight_orig issue
+        nn.init.normal_(self.toxicity_binary.weight, mean=0, std=0.01)
+        nn.init.constant_(self.toxicity_binary.bias, -0.8)  # Negative bias to reduce false positives
+        # Apply weight norm after initialization
         self.toxicity_binary = weight_norm(self.toxicity_binary)
         
         # Chain link 2: Category classifiers (4 binary classifiers that use toxicity result)
         # Input: base features + toxicity binary result
         self.category_insult = nn.Linear(combined_dim + 1, 1)
-        self.category_profanity = nn.Linear(combined_dim + 1, 1)
-        self.category_threat = nn.Linear(combined_dim + 1, 1)
-        self.category_identity_hate = nn.Linear(combined_dim + 1, 1)
-        
-        # Apply weight normalization to category classifiers
+        nn.init.normal_(self.category_insult.weight, mean=0, std=0.01)
+        nn.init.constant_(self.category_insult.bias, -1.0)
         self.category_insult = weight_norm(self.category_insult)
+        
+        self.category_profanity = nn.Linear(combined_dim + 1, 1)
+        nn.init.normal_(self.category_profanity.weight, mean=0, std=0.01)
+        nn.init.constant_(self.category_profanity.bias, -1.0)
         self.category_profanity = weight_norm(self.category_profanity)
+        
+        self.category_threat = nn.Linear(combined_dim + 1, 1)
+        nn.init.normal_(self.category_threat.weight, mean=0, std=0.01)
+        nn.init.constant_(self.category_threat.bias, -1.0)
         self.category_threat = weight_norm(self.category_threat)
+        
+        self.category_identity_hate = nn.Linear(combined_dim + 1, 1)
+        nn.init.normal_(self.category_identity_hate.weight, mean=0, std=0.01)
+        nn.init.constant_(self.category_identity_hate.bias, -1.0)
         self.category_identity_hate = weight_norm(self.category_identity_hate)
         
         # Chain link 3: Severity classifier (toxic vs very toxic)
         # Input: base features + toxicity binary + all 4 categories
         self.severity = nn.Linear(combined_dim + 1 + 4, 1)
+        nn.init.normal_(self.severity.weight, mean=0, std=0.01)
+        nn.init.constant_(self.severity.bias, 0)
         self.severity = weight_norm(self.severity)
-        
-        # Initialize weights
-        self._init_weights()
-      
-    def _init_weights(self):
-        """Initialize weights for classification with PyTorch 2.x compatibility."""
-    # Initialize weights for all linear layers first
-        for m in [self.toxicity_binary, self.category_insult, self.category_profanity,
-              self.category_threat, self.category_identity_hate, self.severity]:
-        # In newer PyTorch versions, we can initialize the weight directly
-            nn.init.normal_(m.weight, mean=0, std=0.01)
-            nn.init.constant_(m.bias, 0)
-    
-        # Add stronger negative bias to reduce false positives
-        nn.init.constant_(self.toxicity_binary.bias, -0.8)  # Stronger negative bias for toxicity detection
-    
-    # More negative bias for category classifiers to reduce false positives
-        for category_classifier in [self.category_insult, self.category_profanity, 
-                                self.category_threat, self.category_identity_hate]:
-            nn.init.constant_(category_classifier.bias, -1.0)  # More negative bias
     
     def forward(self, char_ids, toxicity_features=None):
         """
@@ -82,9 +79,6 @@ class ClassifierChainModel(nn.Module):
         Returns:
             Dictionary with all outputs from the chain
         """
-        # Get base features from the original model's feature extraction
-        # We'll use the implementation details of your base_model to extract features
-        
         # Extract features from base model
         # Note: This implementation assumes your base model has these specific internals
         # You may need to adjust this based on your actual model implementation
@@ -115,7 +109,9 @@ class ClassifierChainModel(nn.Module):
         
         # Process additional toxicity features if provided
         if toxicity_features is not None:
+            # Make sure to use the feature_fc layer with appropriate dimensions
             feature_vec = self.base_model.feature_fc(toxicity_features)
+            feature_vec = self.base_model.feature_bn(feature_vec)  # Use batch norm
             feature_vec = F.relu(feature_vec)
             feature_vec = self.base_model.feature_dropout(feature_vec)
             
@@ -125,7 +121,8 @@ class ClassifierChainModel(nn.Module):
             # If no features provided, use only LSTM output with zero padding
             device = global_max_pool.device
             batch_size = global_max_pool.size(0)
-            feature_padding = torch.zeros(batch_size, 16, device=device)
+            # Use 32 dimensions here instead of 16 to match with the base model
+            feature_padding = torch.zeros(batch_size, 32, device=device)
             base_features = torch.cat([global_max_pool, feature_padding], dim=1)
         
         # ===== CLASSIFIER CHAIN IMPLEMENTATION =====
@@ -184,6 +181,66 @@ class ClassifierChainModel(nn.Module):
             'severity_probs': severity_probs
         }
     
+    def adjust_thresholds_for_safe_words(self, thresholds, toxicity_features):
+        """
+        Adjust classification thresholds based on safe word detection.
+        
+        Args:
+            thresholds: Dictionary of current thresholds
+            toxicity_features: Features extracted from text including safe word info
+            
+        Returns:
+            Updated thresholds dictionary
+        """
+        try:
+            from CONFIG import SAFE_WORD_SETTINGS
+            
+            # Only proceed if safe word feature is enabled
+            if not SAFE_WORD_SETTINGS.get('enable_safe_word_features', False):
+                return thresholds
+            
+            # Get threshold boost amount and maximum threshold
+            boost_amount = SAFE_WORD_SETTINGS.get('safe_word_threshold_boost', 0.15)
+            max_threshold = SAFE_WORD_SETTINGS.get('max_threshold', 0.95)
+            
+            # Create a copy of thresholds to modify
+            adjusted_thresholds = thresholds.copy()
+            
+            # Get batch size
+            batch_size = len(toxicity_features) if isinstance(toxicity_features, list) else toxicity_features.size(0)
+            
+            # Process each example in the batch
+            for i in range(batch_size):
+                # Check if we have safe word information
+                if isinstance(toxicity_features, list) and 'safe_word_count' in toxicity_features[i]:
+                    safe_word_count = toxicity_features[i]['safe_word_count']
+                elif hasattr(toxicity_features, 'safe_word_count'):
+                    safe_word_count = toxicity_features.safe_word_count[i]
+                else:
+                    # Skip if we don't have safe word info
+                    continue
+                    
+                # Apply threshold adjustments if safe words were detected
+                if safe_word_count > 0:
+                    # Scale boost based on number of safe words, up to a maximum
+                    scaled_boost = min(boost_amount * safe_word_count, boost_amount * 3)
+                    
+                    # Adjust toxicity threshold
+                    current = adjusted_thresholds['toxicity']
+                    adjusted_thresholds['toxicity'] = min(max_threshold, current + scaled_boost)
+                    
+                    # Adjust category thresholds
+                    for category in ['insult', 'profanity', 'threat', 'identity_hate']:
+                        current = adjusted_thresholds[category]
+                        adjusted_thresholds[category] = min(max_threshold, current + scaled_boost)
+                    
+            return adjusted_thresholds
+        
+        except Exception as e:
+            # If anything goes wrong, return original thresholds
+            print(f"Error adjusting thresholds for safe words: {e}")
+            return thresholds
+    
     def predict(self, char_ids, toxicity_features=None, thresholds=None):
         """
         Make predictions using the classifier chain with threshold application.
@@ -196,16 +253,20 @@ class ClassifierChainModel(nn.Module):
         Returns:
             Dictionary with final predictions
         """
-    # Updated thresholds with lower values to improve detection
+        # Updated thresholds to reduce false positives
         if thresholds is None:
             thresholds = {
-                'toxicity': 0.6,        # Lowered from 0.7
-                'insult': 0.4,          # Lowered from 0.6 
-                'profanity': 0.5,       # Lowered from 0.7
-                'threat': 0.4,          # Lowered from 0.6
-                'identity_hate': 0.4,   # Lowered from 0.6
+                'toxicity': 0.7,        # Increased from 0.5
+                'insult': 0.6,          # Increased
+                'profanity': 0.7,       # Increased to reduce false positives
+                'threat': 0.6,          # Increased
+                'identity_hate': 0.6,   # Increased
                 'severity': 0.5         # Kept the same
             }
+        
+        # Adjust thresholds based on safe words if applicable
+        if toxicity_features is not None:
+            thresholds = self.adjust_thresholds_for_safe_words(thresholds, toxicity_features)
         
         # Get raw outputs
         outputs = self.forward(char_ids, toxicity_features)
@@ -254,7 +315,7 @@ class ClassifierChainModel(nn.Module):
                 'identity_hate': outputs['category_probs']['identity_hate'],
                 'severity': outputs['severity_probs']
             }
-    }
+        }
 
 
 class MCDropoutChainModel(nn.Module):
@@ -283,30 +344,34 @@ class MCDropoutChainModel(nn.Module):
     
     def predict_with_uncertainty(self, char_ids, toxicity_features=None, num_samples=20, thresholds=None):
         """
-    Run multiple forward passes with dropout enabled to estimate uncertainty.
-    
-    Args:
-        char_ids: Character IDs input tensor
-        toxicity_features: Additional toxicity features tensor  
-        num_samples: Number of Monte Carlo samples
-        thresholds: Dictionary of thresholds for classification
+        Run multiple forward passes with dropout enabled to estimate uncertainty.
         
-    Returns:
-        Dictionary with predictions and uncertainty estimates
-    """
+        Args:
+            char_ids: Character IDs input tensor
+            toxicity_features: Additional toxicity features tensor  
+            num_samples: Number of Monte Carlo samples
+            thresholds: Dictionary of thresholds for classification
+            
+        Returns:
+            Dictionary with predictions and uncertainty estimates
+        """
         self.eval()  # Set model to evaluation mode
         self.enable_dropout()  # But enable dropout
         
-        # Default thresholds - with adjusted values
+        # Default thresholds
         if thresholds is None:
             thresholds = {
-                'toxicity': 0.6,        # Lowered from 0.7
-                'insult': 0.4,          # Lowered from 0.6
-                'profanity': 0.5,       # Lowered from 0.7
-                'threat': 0.4,          # Lowered from 0.6
-                'identity_hate': 0.4,   # Lowered from 0.6
-                'severity': 0.5         # Kept the same
+                'toxicity': 0.7,
+                'insult': 0.6,
+                'profanity': 0.7,
+                'threat': 0.6,
+                'identity_hate': 0.6,
+                'severity': 0.5
             }
+        
+        # Adjust thresholds for safe words if applicable
+        if toxicity_features is not None:
+            thresholds = self.chain_model.adjust_thresholds_for_safe_words(thresholds, toxicity_features)
         
         # Storage for samples
         toxicity_probs_samples = []
@@ -351,11 +416,11 @@ class MCDropoutChainModel(nn.Module):
         profanity_uncertainty = profanity_probs_samples.std(dim=0)
         threat_uncertainty = threat_probs_samples.std(dim=0)
         identity_hate_uncertainty = identity_hate_probs_samples.std(dim=0)
-        severity_uncertainty = severity_probs_samples.std(dim=0)  # Add this line
+        severity_uncertainty = severity_probs_samples.std(dim=0)
         
         # Predictive entropy for overall uncertainty
         toxicity_entropy = -mean_toxicity_probs * torch.log(mean_toxicity_probs + 1e-10) - \
-                            (1 - mean_toxicity_probs) * torch.log(1 - mean_toxicity_probs + 1e-10)
+                           (1 - mean_toxicity_probs) * torch.log(1 - mean_toxicity_probs + 1e-10)
         
         # Apply thresholds to mean predictions
         is_toxic = (mean_toxicity_probs > thresholds['toxicity']).float()
@@ -401,7 +466,7 @@ class MCDropoutChainModel(nn.Module):
                 'profanity': profanity_uncertainty,
                 'threat': threat_uncertainty,
                 'identity_hate': identity_hate_uncertainty,
-                'severity': severity_uncertainty,  # Add this line
+                'severity': severity_uncertainty,
                 'overall': toxicity_entropy
             }
         }

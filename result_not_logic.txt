@@ -1,0 +1,42 @@
+Select an option:
+1. Test on example phrases
+2. Run OOD evaluation
+3. Start interactive prediction
+4. Exit
+Enter your choice (1-4): 3
+
+=== Interactive Prediction with Classifier Chain Model (with Uncertainty) ===
+Type 'exit' to quit, 'mc on' to enable uncertainty estimation, 'mc off' to disable it
+
+Enter text to classify: mc off
+Monte Carlo dropout disabled
+
+Enter text to classify: hello this is a non toxic forum hope you enjoy!
+Safe words detected: ['this', 'for', 'hello']... - Boosting thresholds by 0.450
+
+=== Classification Results ===
+Text: hello this is a non toxic forum hope you enjoy!
+Detected Language: en
+
+Toxicity: TOXIC (Level 1)
+Confidence: 0.9905
+Prediction Confidence: HIGH (clear decision)
+Severity: Toxic
+Severity Confidence: 0.0226
+
+Detected Categories:
+  None
+
+Content Analysis:
+  ALL CAPS Usage: 0.00 (0.0% of words)
+  Toxic Keywords: 1 (10.0% of words)
+  Safe Words/Phrases: 7 (70.0% of words)
+Traceback (most recent call last):
+  File "e:\final_final_final\run_improved_model.py", line 180, in <module>
+    main()
+  File "e:\final_final_final\run_improved_model.py", line 172, in main
+    interactive_chain_prediction(model, char_vocab, use_mc_dropout=True)
+  File "e:\final_final_final\classifier_chain_integration.py", line 408, in interactive_chain_prediction
+    print(f"  Toxicity-Safety Ratio: {features['toxicity_safe_ratio']:.2f}")
+KeyError: 'toxicity_safe_ratio'
+PS E:\final_final_final>

@@ -123,9 +123,7 @@ class SimplifiedCharCNNBiLSTM(nn.Module):
         # Build the CNN layers using the custom CNNLayer class
         self.cnn_layers = nn.ModuleList()
         input_channels = char_emb_dim
-
-        #self._init_weights()
-
+        
         # Create each CNN layer based on simplified architecture
         cnn_configs = CONFIG['cnn_configs'] if 'cnn_configs' in CONFIG else [
             {'large_features': 256, 'small_features': 64, 'kernel': 7, 'pool': 3, 'batch_norm': True},
@@ -163,8 +161,8 @@ class SimplifiedCharCNNBiLSTM(nn.Module):
         )
         
         # ===== Feature Processing Layers =====
-        # Process toxicity features
-        self.feature_fc = nn.Linear(3, 32)  # 3 features to 32 dimensions (increased from 16)
+        # Process toxicity features - UPDATED to include safe word features (6 features total)
+        self.feature_fc = nn.Linear(3, 32)  # 6 features to 32 dimensions
         self.feature_bn = nn.BatchNorm1d(32)  # Added batch normalization
         self.feature_dropout = nn.Dropout(dropout_rate)
         
@@ -266,7 +264,7 @@ class SimplifiedCharCNNBiLSTM(nn.Module):
             # If no features provided, use only LSTM output with zero padding for feature dimension
             device = global_max_pool.device
             batch_size = global_max_pool.size(0)
-            feature_padding = torch.zeros(batch_size, 32, device=device)  # Changed from 16 to 32
+            feature_padding = torch.zeros(batch_size, 32, device=device)
             combined = torch.cat([global_max_pool, feature_padding], dim=1)
         
         # Final output layers

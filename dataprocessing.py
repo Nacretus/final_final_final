@@ -261,6 +261,32 @@ def extract_toxicity_features(text):
     features['toxic_keyword_ratio'] = keyword_count / max(1, len(words))
     features['detected_keywords'] = detected_keywords
     
+    # 3. Safe word detection
+    # Get safe word settings from CONFIG
+    global safe_words
+    if 'safe_words' not in globals():
+        try:
+            from CONFIG import SAFE_WORD_SETTINGS
+            safe_words = SAFE_WORD_SETTINGS.get('benign_phrases', [])
+            print(f"Using {len(safe_words)} safe words/phrases from configuration")
+        except ImportError:
+            # Fallback if CONFIG isn't available
+            safe_words = []
+            print("Warning: Could not import SAFE_WORD_SETTINGS, safe word detection disabled")
+    
+    # Check for safe words/phrases
+    safe_word_count = 0
+    detected_safe_words = []
+    
+    for safe_phrase in safe_words:
+        if safe_phrase.lower() in lower_text:
+            safe_word_count += 1
+            detected_safe_words.append(safe_phrase)
+    
+    features['safe_word_count'] = safe_word_count
+    features['safe_word_ratio'] = safe_word_count / max(1, len(words))
+    features['detected_safe_words'] = detected_safe_words
+    
     return features
 
 # =============================================================================
@@ -329,7 +355,10 @@ class ToxicityDataset(Dataset):
                 'text': processed_text,
                 'all_caps_ratio': torch.tensor(features['all_caps_ratio'], dtype=torch.float),
                 'toxic_keyword_count': torch.tensor(features['toxic_keyword_count'], dtype=torch.float),
-                'toxic_keyword_ratio': torch.tensor(features['toxic_keyword_ratio'], dtype=torch.float)
+                'toxic_keyword_ratio': torch.tensor(features['toxic_keyword_ratio'], dtype=torch.float),
+                # Add safe word features
+                'safe_word_count': torch.tensor(features.get('safe_word_count', 0), dtype=torch.float),
+                'safe_word_ratio': torch.tensor(features.get('safe_word_ratio', 0), dtype=torch.float)
             }
             # Add language info if available
             if self.detect_lang:
@@ -341,7 +370,10 @@ class ToxicityDataset(Dataset):
                 'text': processed_text,
                 'all_caps_ratio': torch.tensor(features['all_caps_ratio'], dtype=torch.float),
                 'toxic_keyword_count': torch.tensor(features['toxic_keyword_count'], dtype=torch.float),
-                'toxic_keyword_ratio': torch.tensor(features['toxic_keyword_ratio'], dtype=torch.float)
+                'toxic_keyword_ratio': torch.tensor(features['toxic_keyword_ratio'], dtype=torch.float),
+                # Add safe word features
+                'safe_word_count': torch.tensor(features.get('safe_word_count', 0), dtype=torch.float),
+                'safe_word_ratio': torch.tensor(features.get('safe_word_ratio', 0), dtype=torch.float)
             }
             # Add language info if available
             if self.detect_lang:

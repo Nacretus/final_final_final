@@ -91,7 +91,7 @@ def train_classifier_chain(model, train_loader, val_loader, num_epochs=30, learn
             # 2. Severity (0 = toxic, 1 = very toxic) - only for toxic items
             severity = (toxicity_level == 2).float().unsqueeze(1)
             
-            # Get toxicity features
+            # Get toxicity features - use only the original 3 features for compatibility
             toxicity_features = torch.stack([
                 batch['all_caps_ratio'],
                 batch['toxic_keyword_count'],
@@ -186,7 +186,7 @@ def train_classifier_chain(model, train_loader, val_loader, num_epochs=30, learn
                 binary_toxicity = (toxicity_level > 0).float().unsqueeze(1)
                 severity = (toxicity_level == 2).float().unsqueeze(1)
                 
-                # Get toxicity features
+                # Get toxicity features - use only the original 3 features for compatibility
                 toxicity_features = torch.stack([
                     batch['all_caps_ratio'],
                     batch['toxic_keyword_count'],
@@ -353,7 +353,7 @@ def evaluate_classifier_chain(model, dataloader):
             toxicity_level = labels[:, 0].long()
             categories = labels[:, 1:5]
             
-            # Get toxicity features
+            # Get toxicity features - use only the original 3 features for compatibility
             toxicity_features = torch.stack([
                 batch['all_caps_ratio'],
                 batch['toxic_keyword_count'],

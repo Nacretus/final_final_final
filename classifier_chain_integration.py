@@ -115,6 +115,8 @@ def batch_predict_with_chain(model, texts, char_vocab, batch_size=32, use_mc_dro
         
         # Extract toxicity features
         toxicity_features_list = [extract_toxicity_features(text) for text in preprocessed_texts]
+        
+        # Extract features for model input
         toxicity_features_tensor = torch.tensor([
             [features['all_caps_ratio'], features['toxic_keyword_count'], features['toxic_keyword_ratio']]
             for features in toxicity_features_list
@@ -131,24 +133,24 @@ def batch_predict_with_chain(model, texts, char_vocab, batch_size=32, use_mc_dro
             single_char_ids = char_ids_tensor[j:j+1]
             single_features = toxicity_features_tensor[j:j+1]
             
-            # Use language-specific thresholds with adjusted values
+            # Use language-specific thresholds
             if language == 'tl':  # Tagalog
                 thresholds = {
-                    'toxicity': 0.65,       # Lowered threshold for Tagalog
-                    'insult': 0.45,         # Lowered all thresholds
-                    'profanity': 0.55,
-                    'threat': 0.45,
-                    'identity_hate': 0.45,
-                    'severity': 0.5
+                    'toxicity': 0.75,       # Higher threshold for Tagalog
+                    'insult': 0.65,
+                    'profanity': 0.75,
+                    'threat': 0.65,
+                    'identity_hate': 0.65,
+                    'severity': 0.55
                 }
             else:  # Default (English)
                 thresholds = {
-                    'toxicity': 0.6,        # Lowered from 0.7
-                    'insult': 0.4,          # Lowered from 0.6
-                    'profanity': 0.5,       # Lowered from 0.7
-                    'threat': 0.4,          # Lowered from 0.6
-                    'identity_hate': 0.4,   # Lowered from 0.6
-                    'severity': 0.5         # Kept the same
+                    'toxicity': 0.7,
+                    'insult': 0.6,
+                    'profanity': 0.7,
+                    'threat': 0.6,
+                    'identity_hate': 0.6,
+                    'severity': 0.5
                 }
             
             # Apply additional rules for specific keywords
@@ -157,14 +159,32 @@ def batch_predict_with_chain(model, texts, char_vocab, batch_size=32, use_mc_dro
             
             # Adjust thresholds based on content
             if features['toxic_keyword_count'] > 0:
-                # If toxic keywords present, lower the threshold more aggressively
-                thresholds['toxicity'] = max(0.4, thresholds['toxicity'] - 0.15)
+                # If toxic keywords present, lower the threshold
+                thresholds['toxicity'] = max(0.5, thresholds['toxicity'] - 0.1)
             else:
                 # Words that often get false positives for profanity - increase threshold
                 benign_words = ['love', 'things', 'adjust', 'good', 'afternoon', 'morning', 'hello']
                 if any(word in text.split() for word in benign_words):
-                    thresholds['toxicity'] = min(0.85, thresholds['toxicity'] + 0.1)
-                    thresholds['profanity'] = min(0.85, thresholds['profanity'] + 0.1)
+                    thresholds['toxicity'] = min(0.9, thresholds['toxicity'] + 0.15)
+                    thresholds['profanity'] = min(0.9, thresholds['profanity'] + 0.15)
+            
+            # NEW: Apply safe word adjustments
+            if 'safe_word_count' in features and features['safe_word_count'] > 0:
+                # Get settings from CONFIG
+                from CONFIG import SAFE_WORD_SETTINGS
+                boost_amount = SAFE_WORD_SETTINGS.get('safe_word_threshold_boost', 0.15)
+                max_threshold = SAFE_WORD_SETTINGS.get('max_threshold', 0.95)
+                
+                # Scale boost based on number of safe words detected
+                scaled_boost = min(boost_amount * features['safe_word_count'], boost_amount * 3)
+                
+                # Apply the boost to all thresholds
+                for key in thresholds:
+                    thresholds[key] = min(max_threshold, thresholds[key] + scaled_boost)
+                
+                # Log the adjustment if significant
+                if features['safe_word_count'] >= 2:
+                    print(f"Safe words detected: {features['detected_safe_words'][:3]}... - Boosting thresholds by {scaled_boost:.3f}")
             
             # Get predictions with appropriate method
             with torch.no_grad():
@@ -197,13 +217,6 @@ def batch_predict_with_chain(model, texts, char_vocab, batch_size=32, use_mc_dro
                     for cat in CONFIG['category_columns']:
                         prediction_result['probabilities'][cat] = predictions['probabilities'][cat][0].item()
                         prediction_result['uncertainty'][cat] = predictions['uncertainty'][cat][0].item()
-                    
-                    # FIX: Use get() with default to handle missing 'severity' key
-                    if 'severity' in predictions['uncertainty']:
-                        prediction_result['uncertainty']['severity'] = predictions['uncertainty']['severity'][0].item()
-                    else:
-                        # Use overall uncertainty as a fallback for severity uncertainty
-                        prediction_result['uncertainty']['severity'] = prediction_result['uncertainty']['overall']
                     
                 else:
                     predictions = model.predict(single_char_ids, single_features, thresholds=thresholds)
@@ -248,6 +261,13 @@ def batch_predict_with_chain(model, texts, char_vocab, batch_size=32, use_mc_dro
                 'toxicity_features': toxicity_features_list[j]
             }
             
+            # Add safe word information
+            if 'safe_word_count' in features:
+                result['safe_words'] = {
+                    'count': features['safe_word_count'],
+                    'detected': features.get('detected_safe_words', [])
+                }
+            
             # Add uncertainty if available
             if use_mc_dropout:
                 result['uncertainty'] = {
@@ -269,6 +289,7 @@ def batch_predict_with_chain(model, texts, char_vocab, batch_size=32, use_mc_dro
 def interactive_chain_prediction(model, char_vocab, use_mc_dropout=False):
     """
     Interactive prediction with the classifier chain model.
+    Compatible with both original and enhanced feature extraction.
     
     Args:
         model: The classifier chain model
@@ -304,7 +325,7 @@ def interactive_chain_prediction(model, char_vocab, use_mc_dropout=False):
         results = batch_predict_with_chain(
             model, [text], char_vocab, 
             use_mc_dropout=current_mc_state,
-            num_mc_samples=CONFIG.get('mc_dropout_samples', 20)
+            num_mc_samples=CONFIG.get('mc_dropout_samples', 30)
         )
         result = results[0]
         
@@ -312,8 +333,33 @@ def interactive_chain_prediction(model, char_vocab, use_mc_dropout=False):
         print("\n=== Classification Results ===")
         print(f"Text: {text}")
         print(f"Detected Language: {result['language']}")
+        
+        # Show applied thresholds if available
+        if 'applied_thresholds' in result:
+            thresholds = result['applied_thresholds']
+            print(f"\nApplied Thresholds: toxicity={thresholds['toxicity']:.2f}, "
+                  f"insult={thresholds['insult']:.2f}, "
+                  f"profanity={thresholds['profanity']:.2f}")
+        
+        # Display toxicity classification with confidence
         print(f"\nToxicity: {result['toxicity']['label'].upper()} (Level {result['toxicity']['level']})")
         print(f"Confidence: {result['toxicity']['probability']:.4f}")
+        
+        # Show prediction confidence status
+        prob = result['toxicity']['probability']
+        if 'uncertainty' in result:
+            uncertainty = result['uncertainty']['overall']
+            if uncertainty > CONFIG.get('uncertainty_threshold', 0.1):
+                print(f"Prediction Confidence: LOW (high uncertainty: {uncertainty:.4f})")
+            elif prob > 0.9 or prob < 0.1:
+                print(f"Prediction Confidence: HIGH (clear decision)")
+            else:
+                print(f"Prediction Confidence: MEDIUM (probability near threshold)")
+        else:
+            if prob > 0.9 or prob < 0.1:
+                print(f"Prediction Confidence: HIGH (clear decision)")
+            else:
+                print(f"Prediction Confidence: MEDIUM (probability near threshold)")
         
         if result['toxicity']['level'] > 0:  # If toxic
             print(f"Severity: {'Very Toxic' if result['toxicity']['level'] == 2 else 'Toxic'}")
@@ -334,7 +380,7 @@ def interactive_chain_prediction(model, char_vocab, use_mc_dropout=False):
                         uncertainty = result['uncertainty']['categories'][category]
                         print(f"    Uncertainty: {uncertainty:.4f}")
                         
-                        if uncertainty > CONFIG.get('uncertainty_threshold', 0.08):
+                        if uncertainty > CONFIG.get('uncertainty_threshold', 0.1):
                             print(f"    HIGH UNCERTAINTY - detection may be unreliable")
             
             if not detected_categories:
@@ -343,19 +389,54 @@ def interactive_chain_prediction(model, char_vocab, use_mc_dropout=False):
         # Display uncertainty if available
         if current_mc_state and 'uncertainty' in result:
             print(f"\nOverall Uncertainty: {result['uncertainty']['overall']:.4f}")
-            if result['uncertainty']['overall'] > CONFIG.get('uncertainty_threshold', 0.08):
+            if result['uncertainty']['overall'] > CONFIG.get('uncertainty_threshold', 0.1):
                 print("  HIGH UNCERTAINTY - prediction may be unreliable")
+                if result['toxicity']['level'] > 0 and result['uncertainty']['overall'] > 0.2:
+                    print("  Recommendation: Consider treating as NON-TOXIC due to high uncertainty")
+        
+        # Display features that influenced the decision
+        features = result['toxicity_features']
+        print("\nContent Analysis:")
         
         # Display toxicity features
-        features = result['toxicity_features']
-        print("\nToxicity Features:")
         print(f"  ALL CAPS Usage: {features['all_caps_ratio']:.2f} ({features['all_caps_ratio']*100:.1f}% of words)")
-        print(f"  Toxic Keywords: {features['toxic_keyword_count']} ({features['toxic_keyword_ratio']*100:.1f}% of words)")
+        print(f"  Toxic Keywords: {features['toxic_keyword_count']} ({features.get('toxic_keyword_ratio', 0)*100:.1f}% of words)")
         
-        if features['detected_keywords']:
-            print("  Detected Keywords:")
+        # Show safe word features if available
+        if 'safe_word_count' in features:
+            print(f"  Safe Words/Phrases: {features['safe_word_count']} ({features['safe_word_ratio']*100:.1f}% of words)")
+            print(f"  Toxicity-Safety Ratio: {features.get('toxicity_safe_ratio', 'N/A')}")
+            
+            if features.get('potentially_safe', False):
+                print("  Content Analysis: Text contains indicators of safe, educational, or informational context")
+        
+        # Show context features if available
+        if 'is_educational' in features:
+            if features['is_educational']:
+                print("  Context: Educational content detected")
+            if features.get('is_announcement', False):
+                print("  Context: Announcement/notice content detected")
+        
+        # Show detected keywords (toxic and safe)
+        if features.get('detected_keywords', []):
+            print("\n  Detected Toxic Keywords:")
             for keyword in features['detected_keywords']:
                 print(f"    - '{keyword}'")
+        
+        if features.get('detected_safe_words', []):
+            print("\n  Detected Safe Words/Phrases:")
+            for safe_word in features['detected_safe_words']:
+                print(f"    - '{safe_word}'")
+        
+        # Provide recommendation for uncertain predictions
+        if result['toxicity']['level'] > 0 and current_mc_state and 'uncertainty' in result:
+            uncertainty = result['uncertainty']['overall']
+            probability = result['toxicity']['probability']
+            
+            if uncertainty > 0.2 and features.get('potentially_safe', False):
+                print("\nRECOMMENDATION: This is likely a FALSE POSITIVE. Text appears to be non-toxic.")
+            elif uncertainty > 0.15 and features.get('safe_word_count', 0) > 0:
+                print("\nRECOMMENDATION: Consider manual review - prediction has moderate uncertainty.")
     
     print("\nExiting interactive prediction.")
 
