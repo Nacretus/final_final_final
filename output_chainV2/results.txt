@@ -1,0 +1,386 @@
+PS E:\final_final_final> & E:/anaconda/envs/torch/python.exe e:/final_final_final/main.py
+Loading data...
+Loading data from 17000datas.csv...
+Loaded 37268 rows from 17000datas.csv
+Columns: ['comment', 'toxicity_level', 'insult', 'profanity', 'threat', 'identity_hate']
+
+Toxicity level distribution:
+  Level 0: 12952 examples (34.8%)
+  Level 1: 12951 examples (34.8%)
+  Level 2: 11365 examples (30.5%)
+
+Category distribution:
+  insult: 10141 positive examples (27.2%)
+  profanity: 10205 positive examples (27.4%)
+  threat: 6372 positive examples (17.1%)
+  identity_hate: 5332 positive examples (14.3%)
+Split data into 22360 training, 7454 validation, and 7454 test examples
+Extracting toxicity features...
+Loaded 4608 toxic keywords from extended_profanity_list.csv
+Adding fixed alphabet with 69 characters
+After adding fixed alphabet: 71 characters
+Extending vocabulary from training data...
+Added 32 new characters from training data
+Final vocabulary size: 103 characters
+Character coverage: nan% of all character occurrences
+Detecting languages for texts...
+Language distribution: {'tl': 10050, 'en': 12310}
+Extracting toxicity features...
+Detecting languages for texts...
+Language distribution: {'en': 4147, 'tl': 3307}
+Extracting toxicity features...
+PS E:\final_final_final> & E:/anaconda/envs/torch/python.exe e:/final_final_final/main.py
+Loading data...
+Loading data from 17000datas.csv...
+Loaded 37268 rows from 17000datas.csv
+Columns: ['comment', 'toxicity_level', 'insult', 'profanity', 'threat', 'identity_hate']
+
+Toxicity level distribution:
+  Level 0: 12952 examples (34.8%)
+  Level 1: 12951 examples (34.8%)
+  Level 2: 11365 examples (30.5%)
+
+Category distribution:
+  insult: 10141 positive examples (27.2%)
+  profanity: 10205 positive examples (27.4%)
+  threat: 6372 positive examples (17.1%)
+  identity_hate: 5332 positive examples (14.3%)
+Split data into 22360 training, 7454 validation, and 7454 test examples
+Extracting toxicity features...
+Loaded 4608 toxic keywords from extended_profanity_list.csv
+Adding fixed alphabet with 69 characters
+After adding fixed alphabet: 71 characters
+Extending vocabulary from training data...
+Added 32 new characters from training data
+Final vocabulary size: 103 characters
+Character coverage: nan% of all character occurrences
+Detecting languages for texts...
+Language distribution: {'tl': 10050, 'en': 12310}
+Extracting toxicity features...
+Detecting languages for texts...
+Language distribution: {'en': 4147, 'tl': 3307}
+Extracting toxicity features...
+Detecting languages for texts...
+Language distribution: {'tl': 3344, 'en': 4110}
+
+Initializing classifier chain model...
+
+Training classifier chain model...
+Training classifier chain model for 30 epochs with learning rate 0.0005
+E:\anaconda\envs\torch\lib\site-packages\torch\optim\lr_scheduler.py:62: UserWarning: The verbose parameter is deprecated. Please use get_last_lr() to access the learning rate.
+  warnings.warn(
+Epoch 1/30 - Train Loss: 1.9527, Val Loss: 2.0999, Val Toxicity Acc: 0.8031, Val Category F1: 0.7887, Time: 254.01s
+New best model found at epoch 1
+Epoch 2/30 - Train Loss: 1.2265, Val Loss: 1.9957, Val Toxicity Acc: 0.7789, Val Category F1: 0.7846, Time: 253.29s
+New best model found at epoch 2
+Epoch 3/30 - Train Loss: 1.0923, Val Loss: 1.5034, Val Toxicity Acc: 0.9210, Val Category F1: 0.8413, Time: 253.01s
+New best model found at epoch 3
+Epoch 4/30 - Train Loss: 1.0201, Val Loss: 1.3705, Val Toxicity Acc: 0.9140, Val Category F1: 0.8268, Time: 252.03s
+New best model found at epoch 4
+Epoch 5/30 - Train Loss: 0.9777, Val Loss: 1.4005, Val Toxicity Acc: 0.9257, Val Category F1: 0.8485, Time: 250.32s
+Validation loss did not improve. Patience: 1/3
+Epoch 6/30 - Train Loss: 0.9425, Val Loss: 1.5582, Val Toxicity Acc: 0.8778, Val Category F1: 0.8172, Time: 252.18s
+Validation loss did not improve. Patience: 2/3
+Epoch 7/30 - Train Loss: 0.9150, Val Loss: 1.2626, Val Toxicity Acc: 0.9325, Val Category F1: 0.8590, Time: 251.09s
+New best model found at epoch 7
+Epoch 8/30 - Train Loss: 0.8982, Val Loss: 1.2865, Val Toxicity Acc: 0.9407, Val Category F1: 0.8568, Time: 250.57s
+Validation loss did not improve. Patience: 1/3
+Epoch 9/30 - Train Loss: 0.8660, Val Loss: 1.8527, Val Toxicity Acc: 0.8585, Val Category F1: 0.8116, Time: 251.99s
+Validation loss did not improve. Patience: 2/3
+Epoch 10/30 - Train Loss: 0.8384, Val Loss: 1.2912, Val Toxicity Acc: 0.9329, Val Category F1: 0.8598, Time: 251.70s
+Validation loss did not improve. Patience: 3/3
+Early stopping triggered at epoch 10
+Loading best model from epoch 7
+
+Evaluating classifier chain model on test set...
+Evaluating classifier chain model...
+
+Toxicity Classification Report:
+Accuracy: 0.9318
+
+Confusion Matrix (rows=true, columns=predicted):
+              | Pred Not Toxic | Pred Toxic | Pred Very Toxic |
+--------------+----------------+------------+-----------------|
+True Not Toxic |           2436 |        150 |               5 |
+True Toxic     |              9 |       2542 |              39 |
+True Very Toxic|              0 |        305 |            1968 |
+
+Toxicity Class Metrics:
+  Not Toxic:
+    Precision: 0.9963
+    Recall: 0.9402
+    F1-score: 0.9674
+  Toxic:
+    Precision: 0.8482
+    Recall: 0.9815
+    F1-score: 0.9100
+  Very Toxic:
+    Precision: 0.9781
+    Recall: 0.8658
+    F1-score: 0.9186
+
+Category Metrics:
+  Insult:
+    Precision: 0.6556
+    Recall: 0.9862
+    F1-score: 0.7876
+  Profanity:
+    Precision: 0.6967
+    Recall: 0.9740
+    F1-score: 0.8123
+  Threat:
+    Precision: 0.9809
+    Recall: 0.9233
+    F1-score: 0.9512
+  Identity_hate:
+    Precision: 0.9227
+    Recall: 0.8299
+    F1-score: 0.8738
+
+Category Macro-Average F1: 0.8562
+Creating OOD test set with criteria: long_texts
+Selected 1047 texts longer than 426.0 characters
+Saved OOD test set with 500 examples to output_chainV2\ood_test_data.csv
+
+Evaluating on OOD test data...
+Loading data from output_chainV2\ood_test_data.csv...
+Loaded 500 rows from output_chainV2\ood_test_data.csv
+Columns: ['comment', 'toxicity_level', 'insult', 'profanity', 'threat', 'identity_hate', 'text_length']
+
+Toxicity level distribution:
+  Level 0: 5 examples (1.0%)
+  Level 1: 437 examples (87.4%)
+  Level 2: 58 examples (11.6%)
+
+Category distribution:
+  insult: 364 positive examples (72.8%)
+  profanity: 340 positive examples (68.0%)
+  threat: 52 positive examples (10.4%)
+  identity_hate: 37 positive examples (7.4%)
+Extracting toxicity features...
+
+Evaluating classifier chain model on OOD test set...
+Evaluating classifier chain model...
+
+Toxicity Classification Report:
+Accuracy: 0.8720
+
+Confusion Matrix (rows=true, columns=predicted):
+              | Pred Not Toxic | Pred Toxic | Pred Very Toxic |
+--------------+----------------+------------+-----------------|
+True Not Toxic |              0 |          5 |               0 |
+True Toxic     |              1 |        433 |               3 |
+True Very Toxic|              0 |         55 |               3 |
+
+Toxicity Class Metrics:
+  Not Toxic:
+    Precision: 0.0000
+    Recall: 0.0000
+    F1-score: 0.0000
+  Toxic:
+    Precision: 0.8783
+    Recall: 0.9908
+    F1-score: 0.9312
+  Very Toxic:
+    Precision: 0.5000
+    Recall: 0.0517
+    F1-score: 0.0938
+
+Category Metrics:
+  Insult:
+    Precision: 0.7293
+    Recall: 0.9918
+    F1-score: 0.8405
+  Profanity:
+    Precision: 0.7032
+    Recall: 0.9824
+    F1-score: 0.8196
+  Threat:
+    Precision: 0.6957
+    Recall: 0.3077
+    F1-score: 0.4267
+  Identity_hate:
+    Precision: 0.0714
+    Recall: 0.0270
+    F1-score: 0.0392
+
+Category Macro-Average F1: 0.5315
+
+Performance Gap Analysis:
+In-distribution accuracy: 0.9318
+Out-of-distribution accuracy: 0.8720
+Gap: 0.0598 (6.4% drop)
+
+Performing Monte Carlo Dropout evaluation on test set...
+
+Monte Carlo Dropout Uncertainty Estimation (sample of test examples):
+Example 1: bruh based take on campus events. solid talaga!!!!...
+  - Predicted: not toxic
+  - Uncertainty: 0.0223
+
+Example 2: i think mobile legends is so vibe!! ang lit ng mut...
+  - Predicted: not toxic
+  - Uncertainty: 0.0276
+
+Example 3: omg mga pakshet
+  - Predicted: toxic
+  - Uncertainty: 0.0706
+
+Example 4: yooo naur, ang ganda ng blackpink. fresh af! chara...
+  - Predicted: not toxic
+  - Uncertainty: 0.1022
+  - HIGH UNCERTAINTY: prediction may be unreliable
+
+Example 5: no cap, i appreciate professors #passingthevibe #p...
+  - Predicted: not toxic
+  - Uncertainty: 0.0441
+
+Example 6: yooo may dating yung scholarships. bussin af! char...
+  - Predicted: not toxic
+  - Uncertainty: 0.4788
+  - HIGH UNCERTAINTY: prediction may be unreliable
+
+Example 7: yooo ang lit ng twitter dramas. bussin af! labyu!
+  - Predicted: not toxic
+  - Uncertainty: 0.0620
+
+Example 8: solid talaga yung valorant. lit and fire!! #colleg...
+  - Predicted: not toxic
+  - Uncertainty: 0.0320
+
+Example 9: national single's day amputa.
+  - Predicted: toxic
+  - Uncertainty: 0.1178
+  - HIGH UNCERTAINTY: prediction may be unreliable
+
+Example 10: absolutely living for valorant #goalaf #goalaf
+  - Predicted: not toxic
+  - Uncertainty: 0.0661
+
+Model saved to output_chainV2\chain_model.pth
+Vocabulary saved to output_chainV2\char_vocab.pkl
+
+Starting interactive prediction with updated chain model...
+
+=== Interactive Prediction with Classifier Chain Model ===
+Type 'exit' to quit, 'mc on' to enable uncertainty estimation, 'mc off' to disable it
+
+Enter text to classify: mc on
+Monte Carlo dropout enabled - uncertainty estimation active
+
+Enter text to classify: this is an announcement today has no classes 
+
+=== Classification Results ===
+Text: this is an announcement today has no classes
+Detected Language: tl
+
+Toxicity: TOXIC (Level 1)
+Confidence: 0.9792
+Severity: Toxic
+Severity Confidence: 0.0168
+
+Detected Categories:
+  - INSULT
+    Confidence: 0.9267
+    Uncertainty: 0.0126
+  - PROFANITY
+    Confidence: 0.7993
+    Uncertainty: 0.0346
+
+Overall Uncertainty: 0.1013
+  HIGH UNCERTAINTY - prediction may be unreliable
+
+Toxicity Features:
+  ALL CAPS Usage: 0.00 (0.0% of words)
+  Toxic Keywords: 5 (62.5% of words)
+  Detected Keywords:
+    - 'ass'
+    - 'ass'
+    - 'ass'
+    - 'asses'
+    - 'asses'
+
+Enter text to classify: nakita mo ba yung post ni ramon kanina sa teams
+
+=== Classification Results ===
+Text: nakita mo ba yung post ni ramon kanina sa teams
+Detected Language: tl
+
+Toxicity: TOXIC (Level 1)
+Confidence: 0.9069
+Severity: Toxic
+Severity Confidence: 0.0127
+
+Detected Categories:
+  - INSULT
+    Confidence: 0.9651
+    Uncertainty: 0.0058
+  - PROFANITY
+    Confidence: 0.7446
+    Uncertainty: 0.0174
+
+Overall Uncertainty: 0.3095
+  HIGH UNCERTAINTY - prediction may be unreliable
+
+Toxicity Features:
+  ALL CAPS Usage: 0.00 (0.0% of words)
+  Toxic Keywords: 0 (0.0% of words)
+
+Enter text to classify: bakit kanina maayos to ah bakit ganito siya mag predict 
+
+=== Classification Results ===
+Text: bakit kanina maayos to ah bakit ganito siya mag predict
+Detected Language: tl
+
+Toxicity: TOXIC (Level 1)
+Confidence: 0.8952
+Severity: Toxic
+Severity Confidence: 0.0168
+
+Detected Categories:
+  - INSULT
+    Confidence: 0.9535
+    Uncertainty: 0.0062
+  - PROFANITY
+    Confidence: 0.6573
+    Uncertainty: 0.0232
+
+Overall Uncertainty: 0.3354
+  HIGH UNCERTAINTY - prediction may be unreliable
+
+Toxicity Features:
+  ALL CAPS Usage: 0.00 (0.0% of words)
+  Toxic Keywords: 0 (0.0% of words)
+
+Enter text to classify: hindi naman toxic sinasabi ko bakit mo sinasabi na toxic?
+
+=== Classification Results ===
+Text: hindi naman toxic sinasabi ko bakit mo sinasabi na toxic?
+Detected Language: tl
+
+Toxicity: TOXIC (Level 1)
+Confidence: 0.9585
+Severity: Toxic
+Severity Confidence: 0.0064
+
+Detected Categories:
+  - INSULT
+    Confidence: 0.9910
+    Uncertainty: 0.0020
+  - PROFANITY
+    Confidence: 0.8785
+    Uncertainty: 0.0174
+
+Overall Uncertainty: 0.1727
+  HIGH UNCERTAINTY - prediction may be unreliable
+
+Toxicity Features:
+  ALL CAPS Usage: 0.00 (0.0% of words)
+  Toxic Keywords: 0 (0.0% of words)
+
+Enter text to classify: exit
+
+Exiting interactive prediction.
+
+Evaluation complete!
+PS E:\final_final_final> 

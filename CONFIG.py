@@ -44,32 +44,35 @@ MODEL_SETTINGS = {
 # Training Settings
 # =============================================================================
 TRAINING_SETTINGS = {
-    'batch_size': 32,                      # Batch size
-    'learning_rate': 0.0005,               # Learning rate
-    'weight_decay': 5e-4,                  # L2 regularization strength (increased)
-    'num_epochs': 30,                      # Maximum training epochs
-    'early_stopping_patience': 5,          # Patience for early stopping
+    'batch_size': 32,                          # Batch size
+    'learning_rate': 0.0005,                   # Learning rate
+    'weight_decay': 5e-4,                      # L2 regularization strength (increased)
+    'num_epochs': 30,                          # Maximum training epochs
+    'early_stopping_patience': 3,              # Patience for early stopping
+    
     # UPDATED: Changed class weights to give more importance to non-toxic class (level 0)
-    'focal_alpha': [1.0, 2.0, 2.0],        # Class weights for toxicity levels
-    # UPDATED: Increased weights for insult category to improve detection
-    'category_weights': [1.0, 1.0, 1.0, 1.0],  # Weights for categories
-    # UPDATED: Increased thresholds to reduce false positives
-    'category_thresholds': [0.5, 0.5, 0.5, 0.5],  # Thresholds for binary categories
-    'category_loss_scale': 1.2,            # Scaling factor for category loss (increased)
-    'use_gradient_clipping': True,         # Whether to use gradient clipping
-    'gradient_clip_value': 1.0,            # Maximum gradient norm
-    'num_workers': 4,                      # Number of data loading workers
-    'seed': 42,                            # Random seed for reproducibility
+    'focal_alpha': [3.0, 1.0, 1.0],            # Increased weight for non-toxic samples
+    
+    # UPDATED: Increased weights for harder categories
+    'category_weights': [2.0, 1.5, 1.8, 2.0],  # Higher weights for insult, threat and identity_hate
+    
+    # UPDATED: Reduced thresholds to improve detection sensitivity
+    'category_thresholds': [0.4, 0.5, 0.4, 0.4],  # Lower thresholds for better recall
+    
+    'category_loss_scale': 1.5,                # Increased scaling for category loss
+    'use_gradient_clipping': True,             # Whether to use gradient clipping
+    'gradient_clip_value': 1.0,                # Maximum gradient norm
+    'num_workers': 4,                          # Number of data loading workers
+    'seed': 42,                                # Random seed for reproducibility
 }
 
 # =============================================================================
 # Evaluation Settings
 # =============================================================================
 EVAL_SETTINGS = {
-    'mc_dropout_samples': 20,              # Number of Monte Carlo samples for uncertainty
-    'uncertainty_threshold': 0.8,          # Threshold for high uncertainty warning
+    'mc_dropout_samples': 20,                  # Number of Monte Carlo samples for uncertainty
+    'uncertainty_threshold': 0.08,             # Threshold for high uncertainty warning
 }
-
 # =============================================================================
 # Feedback System Settings
 # =============================================================================
@@ -86,10 +89,10 @@ FEEDBACK_SETTINGS = {
 # =============================================================================
 PATHS = {
     'data_path': '17000datas.csv',         # Path to main data file
-    'output_dir': 'output_chains',                # Directory for saving outputs
-    'model_save_path': 'output_chains/model.pth', # Path for saving trained model
-    'vocab_save_path': 'output_chains/char_vocab.pkl',  # Path for saving vocabulary
-    'feedback_save_path': 'output_chains/feedback_data.pkl',  # Path for saving feedback data
+    'output_dir': 'output_chainV2',                # Directory for saving outputs
+    'model_save_path': 'output_chainV2/model.pth', # Path for saving trained model
+    'vocab_save_path': 'output_chainV2/char_vocab.pkl',  # Path for saving vocabulary
+    'feedback_save_path': 'output_chainV2/feedback_data.pkl',  # Path for saving feedback data
 }
 
 # =============================================================================

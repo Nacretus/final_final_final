@@ -123,7 +123,9 @@ class SimplifiedCharCNNBiLSTM(nn.Module):
         # Build the CNN layers using the custom CNNLayer class
         self.cnn_layers = nn.ModuleList()
         input_channels = char_emb_dim
-        
+
+        #self._init_weights()
+
         # Create each CNN layer based on simplified architecture
         cnn_configs = CONFIG['cnn_configs'] if 'cnn_configs' in CONFIG else [
             {'large_features': 256, 'small_features': 64, 'kernel': 7, 'pool': 3, 'batch_norm': True},
@@ -210,17 +212,18 @@ class SimplifiedCharCNNBiLSTM(nn.Module):
                     elif 'bias' in name:
                         nn.init.constant_(param, 0)
         
-        # UPDATED: Add negative bias to toxicity classifier to reduce false positives
+        # Adjusted bias for better balance
         nn.init.normal_(self.fc_toxicity.weight, mean=0, std=0.01)
-        nn.init.constant_(self.fc_toxicity.bias, -0.5)  # Strong negative bias to reduce toxic false positives
+        nn.init.constant_(self.fc_toxicity.bias, -0.2)  # Less negative bias for better detection
         
-        # UPDATED: Adjust bias for category detection
+        # Adjust bias for category detection
         nn.init.normal_(self.fc_category.weight, mean=0, std=0.01)
-        nn.init.constant_(self.fc_category.bias, -0.7)  # More negative bias to reduce false positives
+        nn.init.constant_(self.fc_category.bias, -0.3)  # Less negative bias for better sensitivity
         
         # Initialize feature processing layers with Xavier
         nn.init.xavier_normal_(self.feature_fc.weight)
         nn.init.constant_(self.feature_fc.bias, 0)
+            
     
     def forward(self, char_ids, toxicity_features=None):
         # Character embeddings (batch_size, seq_len, char_emb_dim)
